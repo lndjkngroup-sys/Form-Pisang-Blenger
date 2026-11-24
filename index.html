@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pisang Blenger — Form Management Portal</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#FFFBEB',
+              100: '#FEF3C7',
+              500: '#F59E0B',
+              600: '#D97706',
+              700: '#B45309',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Client-side QR Code Generator (Pure JS, Zero CORS Canvas Tainting) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-slide {
+      animation: fadeSlideUp 0.2s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-[#F8FAFC] text-[#0F172A] font-sans selection:bg-amber-100 selection:text-slate-900">
+
+  <!-- ===================================================================== -->
+  <!-- PUBLIC REDIRECTOR VIEW (Aktif jika URL diakses dengan ?slug=xxxx)     -->
+  <!-- ===================================================================== -->
+  <div id="public-redirect-view" class="hidden min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC]">
+    <div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center animate-fade-slide">
+      <div class="mx-auto w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center mb-5 shadow-sm text-amber-400">
+        <i data-lucide="link-2" class="w-6 h-6"></i>
+      </div>
+      <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">Pisang Blenger Form Portal</p>
+      <p class="text-xs text-slate-400 font-mono mb-6" id="redirect-slug-display">form.pisangblenger.id/...</p>
+
+      <div id="redirect-state-loading">
+        <div class="mx-auto w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-4"></div>
+        <h1 class="text-lg font-bold text-slate-900 mb-1">Mengalihkan ke Formulir...</h1>
+        <p class="text-sm text-slate-500" id="redirect-form-title">Mohon tunggu sebentar, sistem sedang menyiapkan formulir Anda.</p>
+        <div class="mt-6 pt-5 border-t border-slate-100">
+          <a id="redirect-manual-link" href="#" class="hidden inline-flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            <span>Klik di sini jika tidak dialihkan otomatis</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <div id="redirect-state-error" class="hidden">
+        <div class="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center mb-4 text-rose-600">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <h1 class="text-xl font-bold text-slate-900 mb-2" id="redirect-error-title">Form Tidak Tersedia</h1>
+        <p class="text-sm text-slate-500 leading-relaxed mb-6" id="redirect-error-desc">
+          Tautan formulir yang Anda tuju tidak ditemukan atau saat ini sedang dinonaktifkan oleh administrator.
+        </p>
+        <button onclick="exitPublicRedirectToAdmin()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition w-full">
+          Buka Portal Admin
+        </button>
+      </div>
+    </div>
+    <p class="mt-6 text-xs text-slate-400">&copy; 2026 Pisang Blenger Corporate Systems</p>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- ADMIN DASHBOARD SHELL                                                 -->
+  <!-- ===================================================================== -->
+  <div id="admin-app-shell" class="min-h-screen flex bg-[#F8FAFC]">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-40 hidden lg:hidden transition-opacity"></div>
+
+    <!-- Fixed Left Corporate Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out">
+      <!-- Brand Header -->
+      <div class="h-16 px-5 flex items-center justify-between border-b border-slate-200 shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 shadow-sm text-amber-400">
+            <i data-lucide="link-2" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="font-bold text-sm text-slate-900 truncate tracking-tight">Pisang Blenger</div>
+            <div class="text-[11px] font-medium text-slate-500 truncate">Form Portal</div>
+          </div>
+        </div>
+        <button onclick="toggleMobileSidebar(false)" class="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Tutup Menu">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Domain Pill -->
+      <div class="px-4 pt-4 pb-2">
+        <div class="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="text-xs font-mono font-medium text-slate-600 truncate">form.pisangblenger.id</span>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+        <div class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Menu Utama</div>
+
+        <button onclick="switchSection('links')" data-nav="links" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition bg-slate-900 text-white">
+          <span class="flex items-center gap-3">
+            <i data-lucide="link" class="w-4 h-4 shrink-0"></i>
+            <span>Manajemen Link</span>
+          </span>
+          <span id="sidebar-link-count" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white">0</span>
+        </button>
+
+        <button onclick="switchSection('qrcode')" data-nav="qrcode" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+          <span class="flex items-center gap-3">
+            <i data-lucide="qr-code" class="w-4 h-4 shrink-0"></i>
+            <span>QR Code Builder</span>
+          </span>
+          <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Siap Scan</span>
+        </button>
+
+        <div class="px-3 pt-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Integrasi</div>
+
+        <button onclick="switchSection('settings')" data-nav="settings" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+          <span class="flex items-center gap-3">
+            <i data-lucide="database" class="w-4 h-4 shrink-0"></i>
+            <span>Pengaturan API</span>
+          </span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer: Connection Status -->
+      <div class="p-4 border-t border-slate-200 bg-slate-50/70">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
+            PB
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-semibold text-slate-900 truncate">Admin Corporate</div>
+            <div id="db-status-indicator" class="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span>Mode Lokal (Browser)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 lg:pl-64">
+
+      <!-- Top Sticky Header -->
+      <header class="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <button onclick="toggleMobileSidebar(true)" class="lg:hidden p-2 -ml-2 rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Buka Menu">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div class="min-w-0">
+            <h1 id="header-page-title" class="text-base sm:text-lg font-bold text-slate-900 truncate">Manajemen Link Form</h1>
+            <p id="header-page-subtitle" class="hidden sm:block text-xs text-slate-500 truncate">Kelola pemetaan link Google Form ke domain resmi form.pisangblenger.id</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 shrink-0">
+          <button onclick="openFormModal()" id="header-cta-btn" class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
+            <i data-lucide="plus" class="w-4 h-4 text-amber-400"></i>
+            <span class="hidden sm:inline">Buat Link Form Baru</span>
+            <span class="sm:hidden">Buat Baru</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Body Container -->
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+
+        <!-- =============================================================== -->
+        <!-- SECTION 1: MANAJEMEN LINK                                       -->
+        <!-- =============================================================== -->
+        <section id="section-links" class="space-y-6 animate-fade-slide">
+
+          <!-- 4 KPI Summary Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1: Total Link -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+              <div>
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Link</p>
+                <p id="kpi-total-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
+                <p class="mt-1 text-xs text-slate-500">Semua formulir</p>
+              </div>
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+                <i data-lucide="layers" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <!-- KPI 2: Link Aktif -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+              <div>
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Link Aktif</p>
+                <p id="kpi-active-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
+                <p class="mt-1 text-xs text-emerald-600 font-medium">Siap diakses</p>
+              </div>
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <!-- KPI 3: Total Klik -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+              <div>
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Klik</p>
+                <p id="kpi-total-clicks" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
+                <p class="mt-1 text-xs text-amber-600 font-medium">Akumulasi akses</p>
+              </div>
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                <i data-lucide="mouse-pointer-click" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <!-- KPI 4: Link Nonaktif -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+              <div>
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Link Nonaktif</p>
+                <p id="kpi-inactive-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
+                <p class="mt-1 text-xs text-slate-500">Akses ditutup</p>
+              </div>
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                <i data-lucide="pause-circle" class="w-5 h-5"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Card -->
+          <div class="bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] overflow-hidden">
+
+            <!-- Toolbar: Search & Status Filter -->
+            <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="relative flex-1 max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input
+                  id="search-input"
+                  type="text"
+                  placeholder="Cari judul form, slug, atau link GForm..."
+                  oninput="handleSearchChange(this.value)"
+                  class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-900/5 transition"
+                />
+              </div>
+
+              <div class="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200/80 self-start sm:self-auto">
+                <button onclick="setStatusFilter('all')" data-filter="all" class="filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm">
+                  Semua
+                </button>
+                <button onclick="setStatusFilter('active')" data-filter="active" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+                  Aktif
+                </button>
+                <button onclick="setStatusFilter('inactive')" data-filter="inactive" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+                  Nonaktif
+                </button>
+              </div>
+            </div>
+
+            <!-- Responsive Table Wrapper -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th class="py-3.5 pl-5 pr-4">Nama Form</th>
+                    <th class="py-3.5 px-4">Short Link</th>
+                    <th class="py-3.5 px-4">Link GForm Asli</th>
+                    <th class="py-3.5 px-4 text-right">Klik</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 pl-4 pr-5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="links-table-body" class="divide-y divide-slate-200/80 text-sm">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Table Footer -->
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
+              <span id="table-count-info">Menampilkan 0 tautan</span>
+              <span class="font-mono text-[11px] text-slate-400">Domain aktif: https://form.pisangblenger.id/</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- SECTION 2: QR CODE BUILDER (SIAP SCAN & DOWNLOAD PNG)           -->
+        <!-- =============================================================== -->
+        <section id="section-qrcode" class="hidden animate-fade-slide">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left Panel: Builder Controls -->
+            <div class="lg:col-span-5 bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-5">
+              <div class="border-b border-slate-100 pb-4">
+                <h2 class="text-base font-bold text-slate-900">Konfigurasi QR Code</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Sesuaikan tampilan QR Code agar siap cetak di meja kasir, banner, atau share ke media sosial.</p>
+              </div>
+
+              <!-- 1. Select Form Link -->
+              <div>
+                <label for="qr-select-link" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Pilih Link Form
+                </label>
+                <select
+                  id="qr-select-link"
+                  onchange="renderBuilderCanvas()"
+                  class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                >
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+
+              <!-- 2. Layout Style Toggle -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Format Tampilan</label>
+                <div class="grid grid-cols-2 gap-2.5">
+                  <button type="button" onclick="setQrLayout('card')" id="btn-layout-card" class="qr-layout-btn flex flex-col items-start p-3 rounded-xl border-2 border-slate-900 bg-slate-50 text-left transition">
+                    <span class="text-xs font-bold text-slate-900">Kartu Branded</span>
+                    <span class="text-[11px] text-slate-500 mt-0.5">Siap cetak &amp; share</span>
+                  </button>
+                  <button type="button" onclick="setQrLayout('plain')" id="btn-layout-plain" class="qr-layout-btn flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
+                    <span class="text-xs font-bold text-slate-900">QR Polos</span>
+                    <span class="text-[11px] text-slate-500 mt-0.5">Putih bersih saja</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 3. Custom CTA Text -->
+              <div id="qr-cta-wrapper">
+                <label for="qr-cta-input" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Teks Ajakan (Call-to-Action)
+                </label>
+                <input
+                  id="qr-cta-input"
+                  type="text"
+                  value="Scan untuk membuka form"
+                  maxlength="48"
+                  oninput="renderBuilderCanvas()"
+                  placeholder="Contoh: Scan untuk isi form"
+                  class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                />
+              </div>
+
+              <!-- 4. Color Theme Selector -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Warna QR Code</label>
+                <div class="grid grid-cols-3 gap-2">
+                  <button type="button" onclick="setQrColor('#0F172A')" data-qr-color="#0F172A" class="qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition">
+                    <span class="w-4 h-4 rounded-full bg-[#0F172A] shrink-0"></span>
+                    <span class="truncate">Hitam</span>
+                  </button>
+                  <button type="button" onclick="setQrColor('#1E3A8A')" data-qr-color="#1E3A8A" class="qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition">
+                    <span class="w-4 h-4 rounded-full bg-[#1E3A8A] shrink-0"></span>
+                    <span class="truncate">Navy</span>
+                  </button>
+                  <button type="button" onclick="setQrColor('#92400E')" data-qr-color="#92400E" class="qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition">
+                    <span class="w-4 h-4 rounded-full bg-[#92400E] shrink-0"></span>
+                    <span class="truncate">Amber</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 5. Resolution Selector -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Resolusi Export PNG</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" onclick="setQrResolution(600)" data-qr-res="600" class="qr-res-btn px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+                    Standard (600px)
+                  </button>
+                  <button type="button" onclick="setQrResolution(1200)" data-qr-res="1200" class="qr-res-btn px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition">
+                    High-Res Print (1200px)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Panel: Live Canvas Preview & Download -->
+            <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-5 sm:p-6 flex flex-col items-center">
+              <div class="w-full flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h2 class="text-base font-bold text-slate-900">Live Preview (Siap Scan)</h2>
+                  <p class="text-xs text-slate-500 mt-0.5">Arahkan kamera HP langsung ke layar untuk menguji hasil scan.</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <i data-lucide="scan-line" class="w-3.5 h-3.5"></i>
+                  <span>Error Correction: High</span>
+                </span>
+              </div>
+
+              <!-- Canvas Stage -->
+              <div class="w-full bg-slate-100/80 border border-dashed border-slate-300 rounded-2xl p-6 sm:p-8 flex items-center justify-center">
+                <canvas id="qr-builder-canvas" class="max-w-full h-auto max-h-[460px] rounded-xl shadow-md bg-white"></canvas>
+              </div>
+
+              <!-- Encoded URL Confirmation Box -->
+              <div class="w-full mt-5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">URL Tertanam di QR Code</div>
+                  <div id="qr-builder-encoded-url" class="text-xs sm:text-sm font-mono font-semibold text-slate-900 truncate mt-0.5">https://form.pisangblenger.id/...</div>
+                </div>
+                <button onclick="downloadBuilderQr()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm transition shrink-0">
+                  <i data-lucide="download" class="w-4 h-4 text-amber-400"></i>
+                  <span>Download PNG</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- SECTION 3: PENGATURAN API (GOOGLE APPS SCRIPT / CODE.GS)        -->
+        <!-- =============================================================== -->
+        <section id="section-settings" class="hidden animate-fade-slide">
+          <div class="max-w-2xl bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-6 space-y-6">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 class="text-base font-bold text-slate-900">Integrasi Database Google Sheets (Code.gs)</h2>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Tempelkan <strong>Web App URL</strong> dari deployment Google Apps Script Anda agar seluruh data link tersinkronisasi secara live ke Google Sheets. Jika dikosongkan, dashboard berjalan otomatis dalam <strong>Mode Lokal (Browser)</strong>.
+                </p>
+              </div>
+              <span id="settings-mode-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                Mode Lokal
+              </span>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label for="input-api-url" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Google Apps Script Web App URL
+                </label>
+                <input
+                  id="input-api-url"
+                  type="url"
+                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                  class="w-full px-3.5 py-2.5 text-sm font-mono bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                />
+                <p class="mt-1.5 text-[11px] text-slate-400">
+                  Pastikan akses deployment Apps Script diatur ke <strong>Anyone</strong> agar dashboard bisa membaca &amp; menyimpan data.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2.5 pt-2">
+                <button onclick="saveAndSyncApi()" id="btn-sync-api" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition shadow-sm">
+                  <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i>
+                  <span>Simpan &amp; Sinkronkan</span>
+                </button>
+                <button onclick="resetToLocalMode()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
+                  Gunakan Mode Lokal
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: CREATE / EDIT FORM LINK                                      -->
+  <!-- ===================================================================== -->
+  <div id="form-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div onclick="closeFormModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
+
+      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
+          <div>
+            <h2 id="modal-title" class="text-base font-bold text-slate-900">Buat Link Form Baru</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Ubah tautan Google Form menjadi alamat resmi Pisang Blenger.</p>
+          </div>
+          <button onclick="closeFormModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition" aria-label="Tutup">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form id="link-form" onsubmit="handleFormSubmit(event)" class="p-6 space-y-5" novalidate>
+          <!-- Judul Form -->
+          <div>
+            <label for="input-title" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Nama Form / Judul <span class="text-rose-500">*</span>
+            </label>
+            <input
+              id="input-title"
+              type="text"
+              required
+              placeholder="Contoh: Pendaftaran Franchise 2026"
+              class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+            />
+          </div>
+
+          <!-- Link Google Form Asli -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label for="input-target-url" class="block text-xs font-semibold text-slate-700">
+                Link Google Form Asli <span class="text-rose-500">*</span>
+              </label>
+              <span id="url-detection-badge" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded-full"></span>
+            </div>
+            <input
+              id="input-target-url"
+              type="url"
+              required
+              oninput="validateTargetUrlInput(this.value)"
+              placeholder="https://docs.google.com/forms/d/e/..."
+              class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+            />
+            <p id="url-error-msg" class="hidden mt-1.5 text-xs text-rose-600 font-medium"></p>
+          </div>
+
+          <!-- Custom Slug -->
+          <div>
+            <label for="input-slug" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Custom Link Domain <span class="text-rose-500">*</span>
+            </label>
+            <div id="slug-input-wrapper" class="flex items-stretch rounded-lg border border-slate-300 bg-white overflow-hidden focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 transition">
+              <span class="inline-flex items-center px-3 bg-slate-100 border-r border-slate-200 text-xs sm:text-sm font-mono font-medium text-slate-500 select-none shrink-0">
+                form.pisangblenger.id/
+              </span>
+              <input
+                id="input-slug"
+                type="text"
+                required
+                autocomplete="off"
+                spellcheck="false"
+                oninput="handleSlugInput(this)"
+                placeholder="franchise"
+                class="flex-1 min-w-0 px-3 py-2.5 text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none bg-transparent"
+              />
+            </div>
+            <div id="slug-status-box" class="mt-2 min-h-[20px] flex items-center gap-1.5 text-xs">
+              <span class="text-slate-400">Hanya huruf kecil, angka, dan tanda hubung (-).</span>
+            </div>
+          </div>
+
+          <!-- Status Toggle -->
+          <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+            <div>
+              <div class="text-xs font-semibold text-slate-900">Status Tautan Form</div>
+              <div id="status-toggle-desc" class="text-[11px] text-slate-500 mt-0.5">Aktif — Publik dapat mengakses dan diarahkan ke Google Form.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+              <input id="input-status" type="checkbox" checked onchange="updateStatusToggleLabel()" class="sr-only peer" />
+              <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-slate-900/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+            <button type="button" onclick="closeFormModal()" class="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
+              Batal
+            </button>
+            <button id="btn-submit-form" type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-45 disabled:cursor-not-allowed transition shadow-sm">
+              <span id="btn-submit-text">Simpan Link Form</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: QUICK QR PREVIEW & DOWNLOAD                                  -->
+  <!-- ===================================================================== -->
+  <div id="quick-qr-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div onclick="closeQuickQrModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
+
+      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
+          <div class="min-w-0 pr-3">
+            <h3 id="quick-qr-title" class="text-base font-bold text-slate-900 truncate">QR Code Form</h3>
+            <p id="quick-qr-url" class="text-xs font-mono text-slate-500 truncate mt-0.5">https://form.pisangblenger.id/...</p>
+          </div>
+          <button onclick="closeQuickQrModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition" aria-label="Tutup">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 flex flex-col items-center text-center">
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-5">
+            <canvas id="quick-qr-canvas" class="w-52 h-52 rounded-lg bg-white shadow-sm"></canvas>
+          </div>
+
+          <div class="w-full space-y-2.5">
+            <button onclick="downloadQuickQr('card')" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition shadow-sm">
+              <i data-lucide="download" class="w-4 h-4 text-amber-400"></i>
+              <span>Download Kartu QR (Siap Cetak)</span>
+            </button>
+            <button onclick="downloadQuickQr('plain')" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition">
+              <i data-lucide="image" class="w-4 h-4 text-slate-500"></i>
+              <span>Download PNG (QR Saja)</span>
+            </button>
+            <button onclick="openInFullQrBuilder()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition">
+              <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+              <span>Kustomisasi di QR Code Builder</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: DELETE CONFIRMATION                                          -->
+  <!-- ===================================================================== -->
+  <div id="delete-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="min-h-screen px-4 flex items-center justify-center">
+      <div onclick="closeDeleteModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
+      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 animate-fade-slide">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-base font-bold text-slate-900">Hapus Link Form?</h3>
+            <p class="mt-1.5 text-sm text-slate-500 leading-relaxed">
+              Tautan <span id="delete-target-slug" class="font-mono font-semibold text-slate-800"></span> (<span id="delete-target-title" class="font-medium text-slate-700"></span>) akan dihapus permanen.
+            </p>
+          </div>
+        </div>
+        <div class="mt-6 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
+            Batal
+          </button>
+          <button id="btn-confirm-delete" type="button" onclick="confirmDeleteLink()" class="px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition shadow-sm">
+            Ya, Hapus Permanen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 4: TEST REDIRECT PREVIEW                                        -->
+  <!-- ===================================================================== -->
+  <div id="test-redirect-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div onclick="closeTestRedirectModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
+      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+        <div class="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center gap-3">
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+          </div>
+          <div class="flex-1 bg-white border border-slate-200 rounded-md px-3 py-1 flex items-center gap-2 min-w-0">
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+            <span id="test-url-bar" class="text-xs font-mono text-slate-600 truncate">https://form.pisangblenger.id/...</span>
+          </div>
+          <button onclick="closeTestRedirectModal()" class="p-1 rounded text-slate-400 hover:text-slate-700" aria-label="Tutup">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div id="test-preview-body" class="p-8 text-center bg-[#F8FAFC]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION JAVASCRIPT                                                -->
+  <!-- ===================================================================== -->
+  <script>
+    const DOMAIN_PREFIX = "form.pisangblenger.id/";
+    const STORAGE_KEY_LINKS = "pb_form_links_v2";
+    const STORAGE_KEY_API = "pb_form_api_url_v2";
+    const RESERVED_SLUGS = ["admin", "login", "api", "dashboard", "auth", "settings", "system", "static", "assets", "404"];
+
+    const DEFAULT_SAMPLE_LINKS = [
+      {
+        id: "PB-1732400001",
+        slug: "franchise",
+        title: "Pendaftaran Franchise Pisang Blenger 2026",
+        target_url: "https://docs.google.com/forms/d/e/1FAIpQLSeDemoFranchisePisangBlenger/viewform",
+        status: "active",
+        clicks: 184,
+        created_at: new Date(Date.now() - 86400000 * 6).toISOString()
+      },
+      {
+        id: "PB-1732400002",
+        slug: "kritik-saran",
+        title: "Kritik & Saran Pelanggan Outlet",
+        target_url: "https://forms.gle/PisangBlengerKritikSaran",
+        status: "active",
+        clicks: 412,
+        created_at: new Date(Date.now() - 86400000 * 3).toISOString()
+      },
+      {
+        id: "PB-1732400003",
+        slug: "order-catering",
+        title: "Pemesanan Paket Catering & Event",
+        target_url: "https://docs.google.com/forms/d/e/1FAIpQLSeDemoCateringPisangBlenger/viewform",
+        status: "inactive",
+        clicks: 67,
+        created_at: new Date(Date.now() - 86400000 * 1).toISOString()
+      }
+    ];
+
+    const state = {
+      links: [],
+      apiUrl: localStorage.getItem(STORAGE_KEY_API) || "",
+      searchQuery: "",
+      statusFilter: "all",
+      editingId: null,
+      deletingId: null,
+      quickQrId: null,
+      isSlugValid: false,
+      qrConfig: {
+        layout: "card", // 'card' | 'plain'
+        color: "#0F172A",
+        resolution: 1200
+      }
+    };
+
+    // -----------------------------------------------------------------------
+    // UTILITIES
+    // -----------------------------------------------------------------------
+    function sanitizeSlug(raw) {
+      return String(raw || "")
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-");
+    }
+
+    function finalizeSlug(raw) {
+      return sanitizeSlug(raw).replace(/^-+|-+$/g, "");
+    }
+
+    function isValidHttpUrl(str) {
+      try {
+        const parsed = new URL(str.trim());
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    function isGoogleFormUrl(str) {
+      try {
+        const parsed = new URL(str.trim());
+        const host = parsed.hostname.toLowerCase();
+        return host === "forms.gle" || (host === "docs.google.com" && parsed.pathname.toLowerCase().includes("/forms"));
+      } catch {
+        return false;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatDateIndo(iso) {
+      if (!iso) return "Baru saja";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "Baru saja";
+      return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+    }
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      const styles = {
+        success: "bg-slate-900 text-white border-slate-800",
+        error: "bg-rose-600 text-white border-rose-700",
+        info: "bg-white text-slate-900 border-slate-200"
+      };
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium animate-fade-slide ${styles[type] || styles.success}`;
+      toast.innerHTML = `<span class="leading-snug">${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(6px)";
+        toast.style.transition = "all 0.2s ease";
+        setTimeout(() => toast.remove(), 220);
+      }, 3000);
+    }
+
+    function copyShortLink(slug) {
+      const fullUrl = `https://${DOMAIN_PREFIX}${slug}`;
+      try {
+        const tempInput = document.createElement("textarea");
+        tempInput.value = fullUrl;
+        tempInput.setAttribute("readonly", "");
+        tempInput.style.position = "fixed";
+        tempInput.style.opacity = "0";
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        tempInput.setSelectionRange(0, 99999);
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        showToast(`Link disalin: ${DOMAIN_PREFIX}${slug}`, "success");
+      } catch {
+        showToast("Gagal menyalin link.", "error");
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // DATA PERSISTENCE (LOCALSTORAGE + OPTIONAL GOOGLE APPS SCRIPT API)
+    // -----------------------------------------------------------------------
+    function saveLocalLinks() {
+      localStorage.setItem(STORAGE_KEY_LINKS, JSON.stringify(state.links));
+    }
+
+    function loadLocalLinks() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_LINKS);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.links = parsed;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("LocalStorage read error:", e);
+      }
+      state.links = [...DEFAULT_SAMPLE_LINKS];
+      saveLocalLinks();
+    }
+
+    function updateConnectionUI() {
+      const indicator = document.getElementById("db-status-indicator");
+      const badge = document.getElementById("settings-mode-badge");
+      if (state.apiUrl) {
+        indicator.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Google Sheets Live</span>`;
+        badge.className = "shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+        badge.textContent = "Terhubung ke Google Sheets";
+      } else {
+        indicator.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Mode Lokal (Browser)</span>`;
+        badge.className = "shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200";
+        badge.textContent = "Mode Lokal";
+      }
+    }
+
+    async function syncFromApi() {
+      if (!state.apiUrl) {
+        loadLocalLinks();
+        renderAll();
+        return;
+      }
+      try {
+        const res = await fetch(`${state.apiUrl}?action=list`);
+        const json = await res.json();
+        if (json.status === "success" && Array.isArray(json.data)) {
+          state.links = json.data;
+          saveLocalLinks();
+          renderAll();
+          showToast("Data berhasil disinkronkan dari Google Sheets.", "success");
+        } else {
+          throw new Error(json.message || "Format respon API tidak valid.");
+        }
+      } catch (err) {
+        console.error("API Sync Error:", err);
+        showToast("Gagal terhubung ke API. Menampilkan data lokal terakhir.", "error");
+        loadLocalLinks();
+        renderAll();
+      }
+    }
+
+    async function postToApi(payload) {
+      const res = await fetch(state.apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
+
+    async function saveAndSyncApi() {
+      const url = document.getElementById("input-api-url").value.trim();
+      if (url && !isValidHttpUrl(url)) {
+        showToast("URL Web App tidak valid. Pastikan diawali https://", "error");
+        return;
+      }
+      state.apiUrl = url;
+      localStorage.setItem(STORAGE_KEY_API, url);
+      updateConnectionUI();
+      if (url) {
+        await syncFromApi();
+      } else {
+        showToast("Beralih ke Mode Lokal (Browser).", "info");
+      }
+    }
+
+    function resetToLocalMode() {
+      document.getElementById("input-api-url").value = "";
+      state.apiUrl = "";
+      localStorage.removeItem(STORAGE_KEY_API);
+      updateConnectionUI();
+      loadLocalLinks();
+      renderAll();
+      showToast("Berhasil reset ke Mode Lokal (Browser).", "info");
+    }
+
+    // -----------------------------------------------------------------------
+    // NAVIGATION & LAYOUT
+    // -----------------------------------------------------------------------
+    function toggleMobileSidebar(show) {
+      const sidebar = document.getElementById("sidebar");
+      const backdrop = document.getElementById("mobile-sidebar-backdrop");
+      if (show) {
+        sidebar.classList.remove("-translate-x-full");
+        backdrop.classList.remove("hidden");
+      } else {
+        sidebar.classList.add("-translate-x-full");
+        backdrop.classList.add("hidden");
+      }
+    }
+
+    const SECTION_META = {
+      links: {
+        title: "Manajemen Link Form",
+        subtitle: "Kelola pemetaan link Google Form ke domain resmi form.pisangblenger.id"
+      },
+      qrcode: {
+        title: "QR Code Builder",
+        subtitle: "Buat & unduh gambar QR Code resolusi tinggi siap scan untuk setiap formulir"
+      },
+      settings: {
+        title: "Pengaturan API",
+        subtitle: "Hubungkan portal dengan Google Apps Script (Code.gs) Google Sheets Anda"
+      }
+    };
+
+    function switchSection(sectionKey) {
+      document.querySelectorAll(".nav-item").forEach((btn) => {
+        const isTarget = btn.dataset.nav === sectionKey;
+        if (isTarget) {
+          btn.classList.add("bg-slate-900", "text-white");
+          btn.classList.remove("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
+        } else {
+          btn.classList.remove("bg-slate-900", "text-white");
+          btn.classList.add("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
+        }
+      });
+
+      const meta = SECTION_META[sectionKey] || SECTION_META.links;
+      document.getElementById("header-page-title").textContent = meta.title;
+      document.getElementById("header-page-subtitle").textContent = meta.subtitle;
+
+      document.getElementById("section-links").classList.toggle("hidden", sectionKey !== "links");
+      document.getElementById("section-qrcode").classList.toggle("hidden", sectionKey !== "qrcode");
+      document.getElementById("section-settings").classList.toggle("hidden", sectionKey !== "settings");
+      document.getElementById("header-cta-btn").classList.toggle("hidden", sectionKey !== "links");
+
+      if (sectionKey === "qrcode") {
+        populateQrSelectDropdown();
+        renderBuilderCanvas();
+      }
+      toggleMobileSidebar(false);
+    }
+
+    // -----------------------------------------------------------------------
+    // RENDER DASHBOARD TABLE & KPIS
+    // -----------------------------------------------------------------------
+    function renderAll() {
+      renderDashboard();
+      populateQrSelectDropdown();
+      if (!document.getElementById("section-qrcode").classList.contains("hidden")) {
+        renderBuilderCanvas();
+      }
+      lucide.createIcons();
+    }
+
+    function renderDashboard() {
+      const totalCount = state.links.length;
+      const activeCount = state.links.filter((l) => l.status === "active").length;
+      const inactiveCount = totalCount - activeCount;
+      const totalClicks = state.links.reduce((sum, l) => sum + (Number(l.clicks) || 0), 0);
+
+      document.getElementById("kpi-total-count").textContent = totalCount.toLocaleString("id-ID");
+      document.getElementById("kpi-active-count").textContent = activeCount.toLocaleString("id-ID");
+      document.getElementById("kpi-inactive-count").textContent = inactiveCount.toLocaleString("id-ID");
+      document.getElementById("kpi-total-clicks").textContent = totalClicks.toLocaleString("id-ID");
+      document.getElementById("sidebar-link-count").textContent = totalCount;
+
+      const q = state.searchQuery.trim().toLowerCase();
+      const filtered = state.links.filter((item) => {
+        if (state.statusFilter === "active" && item.status !== "active") return false;
+        if (state.statusFilter === "inactive" && item.status === "active") return false;
+        if (q) {
+          return `${item.title} ${item.slug} ${item.target_url}`.toLowerCase().includes(q);
+        }
+        return true;
+      });
+
+      const tbody = document.getElementById("links-table-body");
+      document.getElementById("table-count-info").textContent = `Menampilkan ${filtered.length} dari ${totalCount} tautan form`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-12 px-5 text-center">
+              <p class="text-sm font-semibold text-slate-900">Tidak ada link form ditemukan</p>
+              <p class="mt-1 text-xs text-slate-500">Buat link form baru atau ubah filter pencarian Anda.</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((item) => {
+        const isActive = item.status === "active";
+        const safeId = escapeHtml(item.id);
+        const safeSlug = escapeHtml(item.slug);
+        const safeTitle = escapeHtml(item.title);
+        const safeUrl = escapeHtml(item.target_url);
+        const createdDate = formatDateIndo(item.created_at);
+        const clicksFormatted = (Number(item.clicks) || 0).toLocaleString("id-ID");
+
+        const statusBadge = isActive
+          ? `<button onclick="toggleLinkStatus('${safeId}')" title="Klik untuk ubah status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 transition">
+               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Aktif
+             </button>`
+          : `<button onclick="toggleLinkStatus('${safeId}')" title="Klik untuk ubah status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition">
+               <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Nonaktif
+             </button>`;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-4 pl-5 pr-4 align-middle min-w-[200px]">
+              <div class="font-semibold text-slate-900 leading-snug">${safeTitle}</div>
+              <div class="text-xs text-slate-400 mt-0.5">Dibuat ${createdDate}</div>
+            </td>
+            <td class="py-4 px-4 align-middle whitespace-nowrap">
+              <div class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-1.5 py-1">
+                <span class="text-xs font-mono text-slate-500">${DOMAIN_PREFIX}<strong class="text-slate-900 font-semibold">${safeSlug}</strong></span>
+                <button onclick="copyShortLink('${safeSlug}')" title="Salin Short Link" class="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 transition">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </td>
+            <td class="py-4 px-4 align-middle max-w-[200px]">
+              <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition max-w-full" title="${safeUrl}">
+                <span class="truncate">${safeUrl}</span>
+                <i data-lucide="external-link" class="w-3.5 h-3.5 shrink-0 text-slate-400"></i>
+              </a>
+            </td>
+            <td class="py-4 px-4 align-middle text-right whitespace-nowrap">
+              <span class="font-mono text-sm font-semibold text-slate-900">${clicksFormatted}</span>
+            </td>
+            <td class="py-4 px-4 align-middle whitespace-nowrap">
+              ${statusBadge}
+            </td>
+            <td class="py-4 pl-4 pr-5 align-middle text-right whitespace-nowrap">
+              <div class="inline-flex items-center justify-end gap-1">
+                <button onclick="openQuickQrModal('${safeId}')" title="Lihat & Download QR Code" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition">
+                  <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+                  <span>QR</span>
+                </button>
+                <button onclick="openTestRedirectModal('${safeId}')" title="Test Redirect" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
+                  <i data-lucide="play-circle" class="w-4 h-4"></i>
+                </button>
+                <button onclick="openFormModal('${safeId}')" title="Edit Link" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                <button onclick="openDeleteModal('${safeId}')" title="Hapus Link" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function handleSearchChange(val) {
+      state.searchQuery = val;
+      renderDashboard();
+      lucide.createIcons();
+    }
+
+    function setStatusFilter(filter) {
+      state.statusFilter = filter;
+      document.querySelectorAll(".filter-btn").forEach((btn) => {
+        const isSelected = btn.dataset.filter === filter;
+        btn.className = isSelected
+          ? "filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm"
+          : "filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition";
+      });
+      renderDashboard();
+      lucide.createIcons();
+    }
+
+    // -----------------------------------------------------------------------
+    // CREATE / EDIT / TOGGLE / DELETE LINK
+    // -----------------------------------------------------------------------
+    function openFormModal(editId = null) {
+      state.editingId = editId;
+      const modal = document.getElementById("form-modal");
+      const inputTitle = document.getElementById("input-title");
+      const inputUrl = document.getElementById("input-target-url");
+      const inputSlug = document.getElementById("input-slug");
+      const inputStatus = document.getElementById("input-status");
+
+      document.getElementById("url-error-msg").classList.add("hidden");
+
+      if (editId) {
+        const item = state.links.find((l) => l.id === editId);
+        if (!item) return;
+        document.getElementById("modal-title").textContent = "Edit Link Form";
+        document.getElementById("btn-submit-text").textContent = "Simpan Perubahan";
+        inputTitle.value = item.title;
+        inputUrl.value = item.target_url;
+        inputSlug.value = item.slug;
+        inputStatus.checked = item.status === "active";
+      } else {
+        document.getElementById("modal-title").textContent = "Buat Link Form Baru";
+        document.getElementById("btn-submit-text").textContent = "Simpan Link Form";
+        inputTitle.value = "";
+        inputUrl.value = "";
+        inputSlug.value = "";
+        inputStatus.checked = true;
+      }
+
+      updateStatusToggleLabel();
+      validateTargetUrlInput(inputUrl.value);
+      evaluateSlugAvailability(inputSlug.value);
+      modal.classList.remove("hidden");
+      setTimeout(() => inputTitle.focus(), 60);
+    }
+
+    function closeFormModal() {
+      document.getElementById("form-modal").classList.add("hidden");
+      state.editingId = null;
+    }
+
+    function updateStatusToggleLabel() {
+      const checked = document.getElementById("input-status").checked;
+      document.getElementById("status-toggle-desc").textContent = checked
+        ? "Aktif — Publik dapat mengakses dan diarahkan ke Google Form."
+        : "Nonaktif — Tautan akan menampilkan halaman tidak tersedia.";
+    }
+
+    function validateTargetUrlInput(val) {
+      const badge = document.getElementById("url-detection-badge");
+      const errEl = document.getElementById("url-error-msg");
+      const trimmed = (val || "").trim();
+
+      if (!trimmed) {
+        badge.classList.add("hidden");
+        errEl.classList.add("hidden");
+        return false;
+      }
+      if (!isValidHttpUrl(trimmed)) {
+        badge.classList.add("hidden");
+        errEl.textContent = "Format URL tidak valid. Pastikan diawali dengan https://";
+        errEl.classList.remove("hidden");
+        return false;
+      }
+      errEl.classList.add("hidden");
+      badge.classList.remove("hidden");
+      if (isGoogleFormUrl(trimmed)) {
+        badge.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+        badge.textContent = "✓ Google Form Terdeteksi";
+      } else {
+        badge.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200";
+        badge.textContent = "URL Valid";
+      }
+      return true;
+    }
+
+    function handleSlugInput(inputEl) {
+      const sanitized = sanitizeSlug(inputEl.value);
+      if (inputEl.value !== sanitized) inputEl.value = sanitized;
+      evaluateSlugAvailability(sanitized);
+    }
+
+    function evaluateSlugAvailability(rawValue) {
+      const slug = finalizeSlug(rawValue);
+      const statusBox = document.getElementById("slug-status-box");
+      const wrapper = document.getElementById("slug-input-wrapper");
+      const submitBtn = document.getElementById("btn-submit-form");
+
+      wrapper.classList.remove("border-rose-500", "border-emerald-500", "border-amber-500", "border-slate-300");
+
+      if (!slug) {
+        state.isSlugValid = false;
+        wrapper.classList.add("border-slate-300");
+        statusBox.innerHTML = `<span class="text-slate-400">Hanya huruf kecil, angka, dan tanda hubung (-).</span>`;
+        submitBtn.disabled = true;
+        return;
+      }
+
+      if (RESERVED_SLUGS.includes(slug)) {
+        state.isSlugValid = false;
+        wrapper.classList.add("border-amber-500");
+        statusBox.innerHTML = `<span class="text-amber-700 font-medium">Slug "<strong>${escapeHtml(slug)}</strong>" dicadangkan sistem.</span>`;
+        submitBtn.disabled = true;
+        return;
+      }
+
+      const duplicate = state.links.some((item) => item.slug.toLowerCase() === slug && item.id !== state.editingId);
+      if (duplicate) {
+        state.isSlugValid = false;
+        wrapper.classList.add("border-rose-500");
+        statusBox.innerHTML = `<span class="text-rose-600 font-semibold">✕ Slug "${escapeHtml(slug)}" sudah ada! Tidak bisa disimpan.</span>`;
+        submitBtn.disabled = true;
+        return;
+      }
+
+      state.isSlugValid = true;
+      wrapper.classList.add("border-emerald-500");
+      statusBox.innerHTML = `<span class="text-emerald-700 font-semibold">✓ Tersedia — ${DOMAIN_PREFIX}${escapeHtml(slug)}</span>`;
+      submitBtn.disabled = false;
+    }
+
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      const title = document.getElementById("input-title").value.trim();
+      const target_url = document.getElementById("input-target-url").value.trim();
+      const slug = finalizeSlug(document.getElementById("input-slug").value);
+      const status = document.getElementById("input-status").checked ? "active" : "inactive";
+
+      if (!title) {
+        showToast("Nama Form wajib diisi.", "error");
+        return;
+      }
+      if (!validateTargetUrlInput(target_url)) {
+        showToast("Masukkan link Google Form yang valid.", "error");
+        return;
+      }
+      evaluateSlugAvailability(slug);
+      if (!state.isSlugValid || !slug) {
+        showToast("Slug sudah digunakan! Tidak bisa disimpan.", "error");
+        return;
+      }
+
+      const btn = document.getElementById("btn-submit-form");
+      btn.disabled = true;
+
+      try {
+        if (state.editingId) {
+          if (state.apiUrl) {
+            const res = await postToApi({ action: "update", id: state.editingId, slug, title, target_url, status });
+            if (res.status === "duplicate") {
+              showToast(res.message, "error");
+              btn.disabled = false;
+              return;
+            }
+            if (res.status !== "success") throw new Error(res.message);
+          }
+          const idx = state.links.findIndex((l) => l.id === state.editingId);
+          if (idx !== -1) {
+            state.links[idx] = { ...state.links[idx], slug, title, target_url, status };
+          }
+          showToast(`Link "${DOMAIN_PREFIX}${slug}" berhasil diperbarui.`, "success");
+        } else {
+          let newItem = {
+            id: "PB-" + Date.now(),
+            slug,
+            title,
+            target_url,
+            status,
+            clicks: 0,
+            created_at: new Date().toISOString()
+          };
+          if (state.apiUrl) {
+            const res = await postToApi({ action: "create", slug, title, target_url, status });
+            if (res.status === "duplicate") {
+              showToast(res.message, "error");
+              btn.disabled = false;
+              return;
+            }
+            if (res.status !== "success") throw new Error(res.message);
+            if (res.data) newItem = res.data;
+          }
+          state.links.unshift(newItem);
+          showToast(`Link baru "${DOMAIN_PREFIX}${slug}" berhasil disimpan!`, "success");
+        }
+
+        saveLocalLinks();
+        renderAll();
+        closeFormModal();
+      } catch (err) {
+        console.error(err);
+        showToast("Gagal menyimpan data: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function toggleLinkStatus(id) {
+      const item = state.links.find((l) => l.id === id);
+      if (!item) return;
+      const nextStatus = item.status === "active" ? "inactive" : "active";
+      item.status = nextStatus;
+      saveLocalLinks();
+      renderAll();
+
+      if (state.apiUrl) {
+        try {
+          await postToApi({ action: "toggle", id });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      showToast(`Status "${item.slug}" diubah menjadi ${nextStatus === "active" ? "Aktif" : "Nonaktif"}.`, "info");
+    }
+
+    function openDeleteModal(id) {
+      const item = state.links.find((l) => l.id === id);
+      if (!item) return;
+      state.deletingId = id;
+      document.getElementById("delete-target-slug").textContent = `${DOMAIN_PREFIX}${item.slug}`;
+      document.getElementById("delete-target-title").textContent = item.title;
+      document.getElementById("delete-modal").classList.remove("hidden");
+    }
+
+    function closeDeleteModal() {
+      document.getElementById("delete-modal").classList.add("hidden");
+      state.deletingId = null;
+    }
+
+    async function confirmDeleteLink() {
+      if (!state.deletingId) return;
+      const id = state.deletingId;
+      const item = state.links.find((l) => l.id === id);
+      if (state.apiUrl) {
+        try {
+          await postToApi({ action: "delete", id });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      state.links = state.links.filter((l) => l.id !== id);
+      saveLocalLinks();
+      renderAll();
+      closeDeleteModal();
+      showToast(`Link "${item ? item.slug : ""}" telah dihapus.`, "info");
+    }
+
+    // -----------------------------------------------------------------------
+    // CORE QR CODE CANVAS ENGINE (SCANNABLE, HIGH-RES, ZERO CORS TAINTING)
+    // -----------------------------------------------------------------------
+    function drawRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function wrapCanvasText(ctx, text, maxWidth) {
+      const words = String(text || "").split(" ");
+      const lines = [];
+      let current = "";
+      for (const word of words) {
+        const testLine = current ? `${current} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = testLine;
+        }
+      }
+      if (current) lines.push(current);
+      return lines.slice(0, 2);
+    }
+
+    /**
+     * Renders either a Branded Printable QR Card or a Plain Scannable QR onto a Canvas.
+     */
+    function renderQrToCanvas(canvas, options) {
+      const {
+        url,
+        title = "",
+        slug = "",
+        cta = "Scan untuk membuka form",
+        layout = "card",
+        color = "#0F172A",
+        size = 1200
+      } = options;
+
+      // Generate QR matrix with High error correction ('H') for effortless scanning
+      const qr = qrcode(0, "H");
+      qr.addData(url);
+      qr.make();
+      const moduleCount = qr.getModuleCount();
+
+      const ctx = canvas.getContext("2d");
+
+      if (layout === "plain") {
+        // Pure crisp white square with generous quiet zone (4 modules)
+        canvas.width = size;
+        canvas.height = size;
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, size, size);
+
+        const quietModules = 4;
+        const totalModules = moduleCount + quietModules * 2;
+        const cellSize = Math.floor(size / totalModules);
+        const actualQrSize = cellSize * moduleCount;
+        const offset = Math.floor((size - actualQrSize) / 2);
+
+        ctx.fillStyle = color;
+        for (let r = 0; r < moduleCount; r++) {
+          for (let c = 0; c < moduleCount; c++) {
+            if (qr.isDark(r, c)) {
+              ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+        return;
+      }
+
+      // BRANDED PRINTABLE CARD LAYOUT (4:5 Portrait Aspect Ratio)
+      const width = size;
+      const height = Math.round(size * 1.28);
+      canvas.width = width;
+      canvas.height = height;
+
+      const s = width / 1200; // Scale factor relative to 1200px base
+
+      // Background
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+
+      // Subtle outer corporate border
+      ctx.strokeStyle = "#E2E8F0";
+      ctx.lineWidth = 4 * s;
+      drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, height - 40 * s, 44 * s);
+      ctx.stroke();
+
+      // Top Amber Accent Bar
+      ctx.fillStyle = "#F59E0B";
+      drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, 18 * s, 9 * s);
+      ctx.fill();
+
+      // Brand Header Pill: PISANG BLENGER
+      const pillW = 380 * s;
+      const pillH = 64 * s;
+      const pillX = (width - pillW) / 2;
+      const pillY = 82 * s;
+      ctx.fillStyle = "#0F172A";
+      drawRoundRect(ctx, pillX, pillY, pillW, pillH, 32 * s);
+      ctx.fill();
+
+      ctx.fillStyle = "#FBBF24";
+      ctx.font = `800 ${28 * s}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("PISANG BLENGER", width / 2, pillY + pillH / 2 + 1 * s);
+
+      // Form Title (max 2 lines)
+      ctx.fillStyle = "#0F172A";
+      ctx.font = `700 ${46 * s}px Inter, system-ui, sans-serif`;
+      const titleLines = wrapCanvasText(ctx, title || "Formulir Resmi", width - 160 * s);
+      let titleY = 212 * s;
+      titleLines.forEach((line) => {
+        ctx.fillText(line, width / 2, titleY);
+        titleY += 58 * s;
+      });
+
+      // QR Code Frame Box with guaranteed quiet zone
+      const qrBoxSize = 740 * s;
+      const qrBoxX = (width - qrBoxSize) / 2;
+      const qrBoxY = titleLines.length > 1 ? 315 * s : 285 * s;
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = "#E2E8F0";
+      ctx.lineWidth = 4 * s;
+      drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 36 * s);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw crisp QR modules centered inside box (with quiet zone padding)
+      const qrPadding = 58 * s;
+      const availableQrPx = qrBoxSize - qrPadding * 2;
+      const cellSize = Math.floor(availableQrPx / moduleCount);
+      const actualQrPx = cellSize * moduleCount;
+      const qrStartX = Math.floor(qrBoxX + (qrBoxSize - actualQrPx) / 2);
+      const qrStartY = Math.floor(qrBoxY + (qrBoxSize - actualQrPx) / 2);
+
+      ctx.fillStyle = color;
+      for (let r = 0; r < moduleCount; r++) {
+        for (let c = 0; c < moduleCount; c++) {
+          if (qr.isDark(r, c)) {
+            ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Short URL Pill below QR
+      const urlY = qrBoxY + qrBoxSize + 72 * s;
+      const displayUrl = `${DOMAIN_PREFIX}${slug}`;
+      ctx.font = `600 ${34 * s}px monospace`;
+      const urlTextW = ctx.measureText(displayUrl).width;
+      const urlPillW = Math.min(width - 120 * s, urlTextW + 76 * s);
+      const urlPillH = 68 * s;
+
+      ctx.fillStyle = "#F8FAFC";
+      ctx.strokeStyle = "#CBD5E1";
+      ctx.lineWidth = 3 * s;
+      drawRoundRect(ctx, (width - urlPillW) / 2, urlY - urlPillH / 2, urlPillW, urlPillH, 18 * s);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#0F172A";
+      ctx.fillText(displayUrl, width / 2, urlY + 1 * s);
+
+      // Call-to-Action Text at Bottom
+      const ctaY = urlY + 86 * s;
+      ctx.fillStyle = "#475569";
+      ctx.font = `600 ${32 * s}px Inter, system-ui, sans-serif`;
+      ctx.fillText(cta || "Scan untuk membuka form", width / 2, ctaY);
+    }
+
+    function triggerCanvasDownload(canvas, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // -----------------------------------------------------------------------
+    // QUICK QR MODAL (FROM TABLE ROW)
+    // -----------------------------------------------------------------------
+    function openQuickQrModal(id) {
+      const item = state.links.find((l) => l.id === id);
+      if (!item) return;
+      state.quickQrId = id;
+
+      const fullUrl = `https://${DOMAIN_PREFIX}${item.slug}`;
+      document.getElementById("quick-qr-title").textContent = item.title;
+      document.getElementById("quick-qr-url").textContent = fullUrl;
+
+      const canvas = document.getElementById("quick-qr-canvas");
+      renderQrToCanvas(canvas, {
+        url: fullUrl,
+        layout: "plain",
+        color: "#0F172A",
+        size: 600
+      });
+
+      document.getElementById("quick-qr-modal").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function closeQuickQrModal() {
+      document.getElementById("quick-qr-modal").classList.add("hidden");
+      state.quickQrId = null;
+    }
+
+    function downloadQuickQr(layoutType) {
+      const item = state.links.find((l) => l.id === state.quickQrId);
+      if (!item) return;
+      const offscreen = document.createElement("canvas");
+      renderQrToCanvas(offscreen, {
+        url: `https://${DOMAIN_PREFIX}${item.slug}`,
+        title: item.title,
+        slug: item.slug,
+        cta: "Scan untuk membuka form",
+        layout: layoutType,
+        color: "#0F172A",
+        size: 1200
+      });
+      const suffix = layoutType === "card" ? "kartu" : "polos";
+      triggerCanvasDownload(offscreen, `qr-pisangblenger-${item.slug}-${suffix}.png`);
+      showToast(`QR Code (${suffix}) berhasil diunduh!`, "success");
+    }
+
+    function openInFullQrBuilder() {
+      const targetId = state.quickQrId;
+      closeQuickQrModal();
+      switchSection("qrcode");
+      if (targetId) {
+        const select = document.getElementById("qr-select-link");
+        select.value = targetId;
+        renderBuilderCanvas();
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // DEDICATED QR CODE BUILDER TAB
+    // -----------------------------------------------------------------------
+    function populateQrSelectDropdown() {
+      const select = document.getElementById("qr-select-link");
+      const currentVal = select.value;
+      if (state.links.length === 0) {
+        select.innerHTML = `<option value="">Belum ada link form</option>`;
+        return;
+      }
+      select.innerHTML = state.links
+        .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)} (${DOMAIN_PREFIX}${escapeHtml(item.slug)})</option>`)
+        .join("");
+
+      if (currentVal && state.links.some((l) => l.id === currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
+    function setQrLayout(layout) {
+      state.qrConfig.layout = layout;
+      document.getElementById("btn-layout-card").className =
+        layout === "card"
+          ? "qr-layout-btn flex flex-col items-start p-3 rounded-xl border-2 border-slate-900 bg-slate-50 text-left transition"
+          : "qr-layout-btn flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition";
+      document.getElementById("btn-layout-plain").className =
+        layout === "plain"
+          ? "qr-layout-btn flex flex-col items-start p-3 rounded-xl border-2 border-slate-900 bg-slate-50 text-left transition"
+          : "qr-layout-btn flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition";
+
+      document.getElementById("qr-cta-wrapper").classList.toggle("hidden", layout === "plain");
+      renderBuilderCanvas();
+    }
+
+    function setQrColor(hex) {
+      state.qrConfig.color = hex;
+      document.querySelectorAll(".qr-color-btn").forEach((btn) => {
+        const isSelected = btn.dataset.qrColor === hex;
+        btn.className = isSelected
+          ? "qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
+          : "qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition";
+      });
+      renderBuilderCanvas();
+    }
+
+    function setQrResolution(res) {
+      state.qrConfig.resolution = res;
+      document.querySelectorAll(".qr-res-btn").forEach((btn) => {
+        const isSelected = Number(btn.dataset.qrRes) === res;
+        btn.className = isSelected
+          ? "qr-res-btn px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
+          : "qr-res-btn px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition";
+      });
+      renderBuilderCanvas();
+    }
+
+    function renderBuilderCanvas() {
+      const select = document.getElementById("qr-select-link");
+      const item = state.links.find((l) => l.id === select.value) || state.links[0];
+      const canvas = document.getElementById("qr-builder-canvas");
+      const urlDisplay = document.getElementById("qr-builder-encoded-url");
+
+      if (!item) {
+        urlDisplay.textContent = "Buat link form terlebih dahulu";
+        return;
+      }
+
+      const fullUrl = `https://${DOMAIN_PREFIX}${item.slug}`;
+      urlDisplay.textContent = fullUrl;
+
+      renderQrToCanvas(canvas, {
+        url: fullUrl,
+        title: item.title,
+        slug: item.slug,
+        cta: document.getElementById("qr-cta-input").value.trim() || "Scan untuk membuka form",
+        layout: state.qrConfig.layout,
+        color: state.qrConfig.color,
+        size: state.qrConfig.resolution
+      });
+    }
+
+    function downloadBuilderQr() {
+      const select = document.getElementById("qr-select-link");
+      const item = state.links.find((l) => l.id === select.value) || state.links[0];
+      if (!item) {
+        showToast("Pilih link form terlebih dahulu.", "error");
+        return;
+      }
+      const canvas = document.getElementById("qr-builder-canvas");
+      triggerCanvasDownload(canvas, `qr-pisangblenger-${item.slug}.png`);
+      showToast(`Gambar QR "${item.slug}" berhasil diunduh!`, "success");
+    }
+
+    // -----------------------------------------------------------------------
+    // TEST REDIRECT PREVIEW MODAL
+    // -----------------------------------------------------------------------
+    function openTestRedirectModal(id) {
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
+
+      document.getElementById("test-url-bar").textContent = `https://${DOMAIN_PREFIX}${record.slug}`;
+      const body = document.getElementById("test-preview-body");
+
+      if (record.status === "active") {
+        body.innerHTML = `
+          <p class="text-[11px] font-bold uppercase tracking-widest text-amber-600 mb-1">Pisang Blenger Form Portal</p>
+          <h3 class="text-lg font-bold text-slate-900 mb-1">Mengalihkan ke Formulir...</h3>
+          <p class="text-sm text-slate-500 mb-4">${escapeHtml(record.title)}</p>
+          <div class="p-3 rounded-lg bg-white border border-slate-200 text-left mb-6">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Tujuan Google Form</div>
+            <div class="text-xs font-mono text-slate-700 break-all">${escapeHtml(record.target_url)}</div>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <button onclick="executeTestRedirect('${escapeHtml(record.id)}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition shadow-sm">
+              <span>Buka Google Form Sekarang</span>
+            </button>
+            <button onclick="closeTestRedirectModal()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
+              Tutup
+            </button>
+          </div>
+        `;
+      } else {
+        body.innerHTML = `
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700 mb-2">Status: Nonaktif</span>
+          <h3 class="text-lg font-bold text-slate-900 mb-1">Form Tidak Tersedia</h3>
+          <p class="text-sm text-slate-500 mb-6">
+            Pengunjung yang membuka <strong>${DOMAIN_PREFIX}${escapeHtml(record.slug)}</strong> akan melihat halaman ini karena status form sedang <strong>Nonaktif</strong>.
+          </p>
+          <button onclick="closeTestRedirectModal()" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition">
+            Mengerti
+          </button>
+        `;
+      }
+      document.getElementById("test-redirect-modal").classList.remove("hidden");
+    }
+
+    function executeTestRedirect(id) {
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
+      record.clicks = (Number(record.clicks) || 0) + 1;
+      saveLocalLinks();
+      renderAll();
+      window.open(record.target_url, "_blank", "noopener,noreferrer");
+      showToast("Simulasi redirect berhasil (+1 klik tercatat).", "success");
+      closeTestRedirectModal();
+    }
+
+    function closeTestRedirectModal() {
+      document.getElementById("test-redirect-modal").classList.add("hidden");
+    }
+
+    // -----------------------------------------------------------------------
+    // PUBLIC REDIRECTOR MODE (IF ?slug=xxxx)
+    // -----------------------------------------------------------------------
+    function checkPublicRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const querySlug = finalizeSlug(params.get("slug"));
+      if (!querySlug || RESERVED_SLUGS.includes(querySlug)) return false;
+
+      document.getElementById("admin-app-shell").classList.add("hidden");
+      document.getElementById("public-redirect-view").classList.remove("hidden");
+      document.getElementById("redirect-slug-display").textContent = `${DOMAIN_PREFIX}${querySlug}`;
+
+      const record = state.links.find((l) => l.slug.toLowerCase() === querySlug);
+      if (!record) {
+        document.getElementById("redirect-state-loading").classList.add("hidden");
+        document.getElementById("redirect-state-error").classList.remove("hidden");
+        document.getElementById("redirect-error-title").textContent = "Form Tidak Ditemukan (404)";
+        document.getElementById("redirect-error-desc").textContent = `Alamat ${DOMAIN_PREFIX}${querySlug} tidak terdaftar dalam sistem.`;
+        return true;
+      }
+      if (record.status !== "active") {
+        document.getElementById("redirect-state-loading").classList.add("hidden");
+        document.getElementById("redirect-state-error").classList.remove("hidden");
+        document.getElementById("redirect-error-title").textContent = "Form Sedang Nonaktif";
+        document.getElementById("redirect-error-desc").textContent = `Formulir "${record.title}" saat ini sedang ditutup oleh administrator.`;
+        return true;
+      }
+
+      document.getElementById("redirect-form-title").textContent = `Membuka "${record.title}"...`;
+      const manual = document.getElementById("redirect-manual-link");
+      manual.href = record.target_url;
+      manual.classList.remove("hidden");
+
+      record.clicks = (Number(record.clicks) || 0) + 1;
+      saveLocalLinks();
+      setTimeout(() => window.location.replace(record.target_url), 700);
+      return true;
+    }
+
+    function exitPublicRedirectToAdmin() {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, "", cleanUrl);
+      document.getElementById("public-redirect-view").classList.add("hidden");
+      document.getElementById("admin-app-shell").classList.remove("hidden");
+      renderAll();
+    }
+
+    // -----------------------------------------------------------------------
+    // BOOTSTRAP
+    // -----------------------------------------------------------------------
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeFormModal();
+        closeQuickQrModal();
+        closeDeleteModal();
+        closeTestRedirectModal();
+      }
+    });
+
+    (async function init() {
+      document.getElementById("input-api-url").value = state.apiUrl;
+      updateConnectionUI();
+      loadLocalLinks();
+
+      if (state.apiUrl) {
+        await syncFromApi();
+      } else {
+        renderAll();
+      }
+
+      checkPublicRedirect();
+      lucide.createIcons();
+    })();
+  </script>
+</body>
+</html>
