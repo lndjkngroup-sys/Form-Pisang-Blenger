@@ -38,35 +38,21 @@
 
   <!-- Client-side QR Code Generator (Pure JS, Zero CORS Canvas Tainting) -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-
-  <style>
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-
-    @keyframes fadeSlideUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-slide {
-      animation: fadeSlideUp 0.2s ease-out forwards;
-    }
-  </style>
 </head>
-<body class="bg-[#F8FAFC] text-[#0F172A] font-sans selection:bg-amber-100 selection:text-slate-900">
+<body class="bg-slate-50 text-slate-900 font-sans selection:bg-amber-100 selection:text-slate-900 overflow-x-hidden">
 
   <!-- ===================================================================== -->
-  <!-- PUBLIC REDIRECTOR VIEW (Aktif jika URL diakses dengan ?slug=xxxx)     -->
+  <!-- VIEW 1: PUBLIC REDIRECTOR (TANPA LOGIN — ?slug= / ?s= / #/go/xxxx)    -->
   <!-- ===================================================================== -->
-  <div id="public-redirect-view" class="hidden min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC]">
-    <div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center animate-fade-slide">
+  <div id="public-redirect-view" class="hidden min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+    <div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center">
       <div class="mx-auto w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center mb-5 shadow-sm text-amber-400">
         <i data-lucide="link-2" class="w-6 h-6"></i>
       </div>
       <p class="text-xs font-bold uppercase tracking-widest text-amber-600 mb-1">Pisang Blenger Form Portal</p>
-      <p class="text-xs text-slate-400 font-mono mb-6" id="redirect-slug-display">form.pisangblenger.id/...</p>
+      <p class="text-xs text-slate-400 font-mono mb-6 break-all" id="redirect-slug-display">form.pisangblenger.id/...</p>
 
+      <!-- State: Loading / Redirecting -->
       <div id="redirect-state-loading">
         <div class="mx-auto w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-4"></div>
         <h1 class="text-lg font-bold text-slate-900 mb-1">Mengalihkan ke Formulir...</h1>
@@ -79,16 +65,18 @@
         </div>
       </div>
 
+      <!-- State: 404 or Inactive -->
       <div id="redirect-state-error" class="hidden">
         <div class="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center mb-4 text-rose-600">
           <i data-lucide="alert-triangle" class="w-6 h-6"></i>
         </div>
-        <h1 class="text-xl font-bold text-slate-900 mb-2" id="redirect-error-title">Form Tidak Tersedia</h1>
+        <h1 class="text-xl font-bold text-slate-900 mb-2" id="redirect-error-title">Link Tidak Ditemukan</h1>
         <p class="text-sm text-slate-500 leading-relaxed mb-6" id="redirect-error-desc">
           Tautan formulir yang Anda tuju tidak ditemukan atau saat ini sedang dinonaktifkan oleh administrator.
         </p>
-        <button onclick="exitPublicRedirectToAdmin()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition w-full">
-          Buka Portal Admin
+        <button onclick="exitPublicRedirectToAdmin()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition w-full">
+          <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+          <span>Masuk ke Portal Admin</span>
         </button>
       </div>
     </div>
@@ -96,9 +84,139 @@
   </div>
 
   <!-- ===================================================================== -->
-  <!-- ADMIN DASHBOARD SHELL                                                 -->
+  <!-- VIEW 2: CORPORATE ADMIN LOGIN SCREEN (SECURITY GATE)                  -->
   <!-- ===================================================================== -->
-  <div id="admin-app-shell" class="min-h-screen flex bg-[#F8FAFC]">
+  <div id="admin-login-view" class="hidden min-h-screen relative flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-900 overflow-hidden">
+    <!-- Subtle Corporate Background Accents -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">
+      <div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl"></div>
+      <div class="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-slate-700/30 blur-3xl"></div>
+    </div>
+
+    <!-- Centered Login Card -->
+    <div class="relative z-10 w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden">
+      <!-- Top Amber Accent Bar -->
+      <div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600"></div>
+
+      <div class="p-6 sm:p-8">
+        <!-- Brand Header -->
+        <div class="text-center mb-7">
+          <div class="mx-auto w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center mb-4 shadow-md text-amber-400 ring-4 ring-amber-50">
+            <i data-lucide="shield-check" class="w-7 h-7"></i>
+          </div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-2">
+            <span>form.pisangblenger.id</span>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Pisang Blenger Form Portal</h1>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1">Masuk ke Panel Administrator</p>
+        </div>
+
+        <!-- Error Alert Box -->
+        <div id="login-error-box" class="hidden mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700">
+          <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5 text-rose-600"></i>
+          <div class="text-xs font-medium leading-relaxed" id="login-error-text">Username atau password salah.</div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-4" novalidate>
+          <!-- Username -->
+          <div>
+            <label for="login-username" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Username
+            </label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input
+                id="login-username"
+                type="text"
+                required
+                autocomplete="username"
+                placeholder="Masukkan username admin"
+                class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+              />
+            </div>
+          </div>
+
+          <!-- Password with Eye Toggle -->
+          <div>
+            <label for="login-password" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Password
+            </label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input
+                id="login-password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="Masukkan password"
+                class="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('login-password', 'login-eye-icon')"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition"
+                aria-label="Tampilkan atau sembunyikan password"
+              >
+                <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Remember Session Checkbox -->
+          <div class="flex items-center justify-between pt-0.5 gap-2">
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                id="login-remember"
+                type="checkbox"
+                checked
+                class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20"
+              />
+              <span class="text-xs font-medium text-slate-600">Ingat sesi saya</span>
+            </label>
+            <span id="login-server-status-pill" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              <span>Cek Server...</span>
+            </span>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            id="btn-login-submit"
+            type="submit"
+            class="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-sm transition"
+          >
+            <span id="login-btn-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-amber-400 rounded-full animate-spin"></span>
+            <i id="login-btn-icon" data-lucide="log-in" class="w-4 h-4 text-amber-400"></i>
+            <span id="login-btn-text">Masuk Dashboard</span>
+          </button>
+        </form>
+
+        <!-- Server API Configuration Trigger -->
+        <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col items-center gap-2.5">
+          <div id="login-api-missing-notice" class="hidden w-full p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed flex items-start gap-2">
+            <i data-lucide="server-off" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+            <span>URL Server Database (Code.gs) belum diatur. Klik tombol di bawah untuk menghubungkan server.</span>
+          </div>
+          <button
+            type="button"
+            onclick="openApiConfigModal()"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition"
+          >
+            <i data-lucide="server" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>Konfigurasi Server API</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <p class="relative z-10 mt-6 text-xs text-slate-400">&copy; 2026 Pisang Blenger Corporate Systems. Akses Terbatas.</p>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VIEW 3: ADMIN DASHBOARD SHELL (PROTECTED)                             -->
+  <!-- ===================================================================== -->
+  <div id="admin-app-shell" class="hidden min-h-screen flex bg-slate-50">
 
     <!-- Mobile Sidebar Backdrop -->
     <div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-40 hidden lg:hidden transition-opacity"></div>
@@ -149,30 +267,34 @@
           <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Siap Scan</span>
         </button>
 
-        <div class="px-3 pt-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Integrasi</div>
+        <div class="px-3 pt-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sistem</div>
 
         <button onclick="switchSection('settings')" data-nav="settings" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
           <span class="flex items-center gap-3">
-            <i data-lucide="database" class="w-4 h-4 shrink-0"></i>
-            <span>Pengaturan API</span>
+            <i data-lucide="settings" class="w-4 h-4 shrink-0"></i>
+            <span>Pengaturan &amp; Keamanan</span>
           </span>
         </button>
       </nav>
 
-      <!-- Sidebar Footer: Connection Status -->
-      <div class="p-4 border-t border-slate-200 bg-slate-50/70">
+      <!-- Sidebar Footer: Logged-in User & Logout -->
+      <div class="p-4 border-t border-slate-200 bg-slate-50/70 space-y-3">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
-            PB
+          <div id="sidebar-user-avatar" class="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 uppercase">
+            AD
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-xs font-semibold text-slate-900 truncate">Admin Corporate</div>
+            <div id="sidebar-username-display" class="text-xs font-semibold text-slate-900 truncate">admin</div>
             <div id="db-status-indicator" class="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              <span>Mode Lokal (Browser)</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Google Sheets Live</span>
             </div>
           </div>
         </div>
+        <button onclick="handleLogout()" class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600 text-xs font-semibold transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Keluar / Logout</span>
+        </button>
       </div>
     </aside>
 
@@ -180,7 +302,7 @@
     <div class="flex-1 flex flex-col min-w-0 lg:pl-64">
 
       <!-- Top Sticky Header -->
-      <header class="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <header class="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
           <button onclick="toggleMobileSidebar(true)" class="lg:hidden p-2 -ml-2 rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Buka Menu">
             <i data-lucide="menu" class="w-5 h-5"></i>
@@ -191,11 +313,15 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2.5 shrink-0">
+        <div class="flex items-center gap-2 shrink-0">
           <button onclick="openFormModal()" id="header-cta-btn" class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
             <i data-lucide="plus" class="w-4 h-4 text-amber-400"></i>
             <span class="hidden sm:inline">Buat Link Form Baru</span>
             <span class="sm:hidden">Buat Baru</span>
+          </button>
+          <button onclick="handleLogout()" title="Keluar dari Dashboard" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600 text-xs sm:text-sm font-medium transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="hidden md:inline">Keluar</span>
           </button>
         </div>
       </header>
@@ -206,12 +332,11 @@
         <!-- =============================================================== -->
         <!-- SECTION 1: MANAJEMEN LINK                                       -->
         <!-- =============================================================== -->
-        <section id="section-links" class="space-y-6 animate-fade-slide">
+        <section id="section-links" class="space-y-6">
 
-          <!-- 4 KPI Summary Cards -->
+          <!-- KPI Summary Cards -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- KPI 1: Total Link -->
-            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm flex items-start justify-between gap-3">
               <div>
                 <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Link</p>
                 <p id="kpi-total-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
@@ -222,8 +347,7 @@
               </div>
             </div>
 
-            <!-- KPI 2: Link Aktif -->
-            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm flex items-start justify-between gap-3">
               <div>
                 <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Link Aktif</p>
                 <p id="kpi-active-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
@@ -234,10 +358,9 @@
               </div>
             </div>
 
-            <!-- KPI 3: Total Klik -->
-            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm flex items-start justify-between gap-3">
               <div>
-                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Klik</p>
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Klik / Scan</p>
                 <p id="kpi-total-clicks" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
                 <p class="mt-1 text-xs text-amber-600 font-medium">Akumulasi akses</p>
               </div>
@@ -246,8 +369,7 @@
               </div>
             </div>
 
-            <!-- KPI 4: Link Nonaktif -->
-            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex items-start justify-between gap-3">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm flex items-start justify-between gap-3">
               <div>
                 <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Link Nonaktif</p>
                 <p id="kpi-inactive-count" class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">0</p>
@@ -260,35 +382,34 @@
           </div>
 
           <!-- Table Card -->
-          <div class="bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] overflow-hidden">
-
-            <!-- Toolbar: Search & Status Filter -->
+          <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <!-- Toolbar -->
             <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div class="relative flex-1 max-w-md">
-                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                <input
-                  id="search-input"
-                  type="text"
-                  placeholder="Cari judul form, slug, atau link GForm..."
-                  oninput="handleSearchChange(this.value)"
-                  class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-900/5 transition"
-                />
-              </div>
-
-              <div class="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200/80 self-start sm:self-auto">
-                <button onclick="setStatusFilter('all')" data-filter="all" class="filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm">
-                  Semua
-                </button>
-                <button onclick="setStatusFilter('active')" data-filter="active" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
-                  Aktif
-                </button>
-                <button onclick="setStatusFilter('inactive')" data-filter="inactive" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
-                  Nonaktif
+              <div class="flex items-center gap-2 self-start sm:self-auto">
+                <div class="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200/80">
+                  <button onclick="setStatusFilter('all')" data-filter="all" class="filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm">
+                    Semua
+                  </button>
+                  <button onclick="setStatusFilter('active')" data-filter="active" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+                    Aktif
+                  </button>
+                  <button onclick="setStatusFilter('inactive')" data-filter="inactive" class="filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+                    Nonaktif
+                  </button>
+                </div>
+                <button
+                  id="btn-refresh-links"
+                  onclick="syncFromApi(true)"
+                  title="Muat ulang data dari database"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition shadow-sm"
+                >
+                  <i id="refresh-links-icon" data-lucide="refresh-cw" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span class="hidden sm:inline">Refresh</span>
                 </button>
               </div>
             </div>
 
-            <!-- Responsive Table Wrapper -->
+            <!-- Responsive Table -->
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse">
                 <thead>
@@ -316,30 +437,26 @@
         </section>
 
         <!-- =============================================================== -->
-        <!-- SECTION 2: QR CODE BUILDER (SIAP SCAN & DOWNLOAD PNG)           -->
+        <!-- SECTION 2: QR CODE BUILDER                                      -->
         <!-- =============================================================== -->
-        <section id="section-qrcode" class="hidden animate-fade-slide">
+        <section id="section-qrcode" class="hidden">
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            <!-- Left Panel: Builder Controls -->
-            <div class="lg:col-span-5 bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-5">
+            <!-- Left Panel: Controls -->
+            <div class="lg:col-span-5 bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 space-y-5">
               <div class="border-b border-slate-100 pb-4">
                 <h2 class="text-base font-bold text-slate-900">Konfigurasi QR Code</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Sesuaikan tampilan QR Code agar siap cetak di meja kasir, banner, atau share ke media sosial.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Sesuaikan tampilan QR Code agar siap cetak di meja kasir, banner, atau dibagikan ke media sosial.</p>
               </div>
 
               <!-- 1. Select Form Link -->
               <div>
-                <label for="qr-select-link" class="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Pilih Link Form
-                </label>
+                <label for="qr-select-link" class="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Link Form</label>
                 <select
                   id="qr-select-link"
                   onchange="renderBuilderCanvas()"
                   class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
-                >
-                  <!-- Populated dynamically -->
-                </select>
+                ></select>
               </div>
 
               <!-- 2. Layout Style Toggle -->
@@ -352,28 +469,26 @@
                   </button>
                   <button type="button" onclick="setQrLayout('plain')" id="btn-layout-plain" class="qr-layout-btn flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
                     <span class="text-xs font-bold text-slate-900">QR Polos</span>
-                    <span class="text-[11px] text-slate-500 mt-0.5">Putih bersih saja</span>
+                    <span class="text-[11px] text-slate-500 mt-0.5">PNG saja, putih bersih</span>
                   </button>
                 </div>
               </div>
 
               <!-- 3. Custom CTA Text -->
               <div id="qr-cta-wrapper">
-                <label for="qr-cta-input" class="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Teks Ajakan (Call-to-Action)
-                </label>
+                <label for="qr-cta-input" class="block text-xs font-semibold text-slate-700 mb-1.5">Teks Ajakan (Call-to-Action)</label>
                 <input
                   id="qr-cta-input"
                   type="text"
-                  value="Scan untuk membuka form"
+                  value="Scan untuk Mengisi Formulir"
                   maxlength="48"
                   oninput="renderBuilderCanvas()"
-                  placeholder="Contoh: Scan untuk isi form"
+                  placeholder="Contoh: Scan untuk Mengisi Formulir"
                   class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
                 />
               </div>
 
-              <!-- 4. Color Theme Selector -->
+              <!-- 4. Color Presets -->
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Warna QR Code</label>
                 <div class="grid grid-cols-3 gap-2">
@@ -392,39 +507,40 @@
                 </div>
               </div>
 
-              <!-- 5. Resolution Selector -->
+              <!-- 5. Resolution Selector (600px, 900px, 1200px) -->
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Resolusi Export PNG</label>
-                <div class="grid grid-cols-2 gap-2">
-                  <button type="button" onclick="setQrResolution(600)" data-qr-res="600" class="qr-res-btn px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
-                    Standard (600px)
+                <div class="grid grid-cols-3 gap-2">
+                  <button type="button" onclick="setQrResolution(600)" data-qr-res="600" class="qr-res-btn px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+                    600px
                   </button>
-                  <button type="button" onclick="setQrResolution(1200)" data-qr-res="1200" class="qr-res-btn px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition">
-                    High-Res Print (1200px)
+                  <button type="button" onclick="setQrResolution(900)" data-qr-res="900" class="qr-res-btn px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+                    900px
+                  </button>
+                  <button type="button" onclick="setQrResolution(1200)" data-qr-res="1200" class="qr-res-btn px-2.5 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition">
+                    1200px HD
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- Right Panel: Live Canvas Preview & Download -->
-            <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-5 sm:p-6 flex flex-col items-center">
-              <div class="w-full flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+            <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 flex flex-col items-center">
+              <div class="w-full flex items-center justify-between border-b border-slate-100 pb-4 mb-6 gap-2">
                 <div>
                   <h2 class="text-base font-bold text-slate-900">Live Preview (Siap Scan)</h2>
                   <p class="text-xs text-slate-500 mt-0.5">Arahkan kamera HP langsung ke layar untuk menguji hasil scan.</p>
                 </div>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                   <i data-lucide="scan-line" class="w-3.5 h-3.5"></i>
-                  <span>Error Correction: High</span>
+                  <span>High ECC</span>
                 </span>
               </div>
 
-              <!-- Canvas Stage -->
               <div class="w-full bg-slate-100/80 border border-dashed border-slate-300 rounded-2xl p-6 sm:p-8 flex items-center justify-center">
                 <canvas id="qr-builder-canvas" class="max-w-full h-auto max-h-[460px] rounded-xl shadow-md bg-white"></canvas>
               </div>
 
-              <!-- Encoded URL Confirmation Box -->
               <div class="w-full mt-5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="min-w-0">
                   <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">URL Tertanam di QR Code</div>
@@ -441,48 +557,147 @@
         </section>
 
         <!-- =============================================================== -->
-        <!-- SECTION 3: PENGATURAN API (GOOGLE APPS SCRIPT / CODE.GS)        -->
+        <!-- SECTION 3: PENGATURAN & KEAMANAN                                -->
         <!-- =============================================================== -->
-        <section id="section-settings" class="hidden animate-fade-slide">
-          <div class="max-w-2xl bg-white border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.03)] p-6 space-y-6">
-            <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 class="text-base font-bold text-slate-900">Integrasi Database Google Sheets (Code.gs)</h2>
-                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Tempelkan <strong>Web App URL</strong> dari deployment Google Apps Script Anda agar seluruh data link tersinkronisasi secara live ke Google Sheets. Jika dikosongkan, dashboard berjalan otomatis dalam <strong>Mode Lokal (Browser)</strong>.
-                </p>
-              </div>
-              <span id="settings-mode-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                Mode Lokal
-              </span>
-            </div>
+        <section id="section-settings" class="hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-            <div class="space-y-4">
-              <div>
-                <label for="input-api-url" class="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Google Apps Script Web App URL
-                </label>
-                <input
-                  id="input-api-url"
-                  type="url"
-                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                  class="w-full px-3.5 py-2.5 text-sm font-mono bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
-                />
-                <p class="mt-1.5 text-[11px] text-slate-400">
-                  Pastikan akses deployment Apps Script diatur ke <strong>Anyone</strong> agar dashboard bisa membaca &amp; menyimpan data.
-                </p>
+            <!-- Card 1: Ubah Username & Password Admin (Saved to Database) -->
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
+              <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="text-base font-bold text-slate-900">Ubah Username &amp; Password Admin</h2>
+                  <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Perubahan kredensial langsung disimpan permanen ke database Google Sheets melalui <strong>Code.gs</strong>.
+                  </p>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-800 shrink-0">
+                  <i data-lucide="user-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                  <span id="settings-current-user">admin</span>
+                </div>
               </div>
 
-              <div class="flex flex-wrap items-center gap-2.5 pt-2">
-                <button onclick="saveAndSyncApi()" id="btn-sync-api" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition shadow-sm">
-                  <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i>
-                  <span>Simpan &amp; Sinkronkan</span>
-                </button>
-                <button onclick="resetToLocalMode()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
-                  Gunakan Mode Lokal
-                </button>
+              <form id="db-credentials-form" onsubmit="handleUpdateDbCredentials(event)" class="space-y-4">
+                <div>
+                  <label for="sec-current-password" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Password Saat Ini <span class="text-rose-500">*</span>
+                  </label>
+                  <input
+                    id="sec-current-password"
+                    type="password"
+                    required
+                    autocomplete="current-password"
+                    placeholder="Masukkan password saat ini"
+                    class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label for="sec-new-username" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Username Baru <span class="text-rose-500">*</span>
+                  </label>
+                  <input
+                    id="sec-new-username"
+                    type="text"
+                    required
+                    minlength="3"
+                    autocomplete="username"
+                    placeholder="Contoh: admin_blenger"
+                    class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label for="sec-new-password" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Password Baru <span class="text-rose-500">*</span>
+                    </label>
+                    <input
+                      id="sec-new-password"
+                      type="password"
+                      required
+                      minlength="6"
+                      autocomplete="new-password"
+                      placeholder="Minimal 6 karakter"
+                      class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                    />
+                  </div>
+                  <div>
+                    <label for="sec-confirm-password" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Konfirmasi Password Baru <span class="text-rose-500">*</span>
+                    </label>
+                    <input
+                      id="sec-confirm-password"
+                      type="password"
+                      required
+                      minlength="6"
+                      autocomplete="new-password"
+                      placeholder="Ulangi password baru"
+                      class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                    />
+                  </div>
+                </div>
+
+                <div class="pt-1 flex items-center justify-between gap-3">
+                  <button
+                    id="btn-save-credentials"
+                    type="submit"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold shadow-sm transition"
+                  >
+                    <span id="cred-btn-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-amber-400 rounded-full animate-spin"></span>
+                    <i id="cred-btn-icon" data-lucide="key-round" class="w-4 h-4 text-amber-400"></i>
+                    <span id="cred-btn-text">Simpan ke Database</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Card 2: Koneksi Server Database (Code.gs) -->
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
+              <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="text-base font-bold text-slate-900">Koneksi Server Database (Code.gs)</h2>
+                  <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Kelola <strong>Web App URL</strong> Google Apps Script untuk sinkronisasi live Google Sheets &amp; otentikasi server.
+                  </p>
+                </div>
+                <span id="settings-mode-badge" class="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  API Terhubung
+                </span>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label for="input-api-url" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Google Apps Script Web App URL
+                  </label>
+                  <input
+                    id="input-api-url"
+                    type="url"
+                    placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                    class="w-full px-3.5 py-2.5 text-sm font-mono bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                  />
+                  <p class="mt-1.5 text-[11px] text-slate-400">
+                    Pastikan deployment Apps Script diatur ke <strong>Execute as: Me</strong> &amp; <strong>Who has access: Anyone</strong>.
+                  </p>
+                </div>
+
+                <!-- Real-time Ping Status Box -->
+                <div id="settings-ping-status" class="hidden p-3 rounded-xl border text-xs font-medium flex items-center gap-2"></div>
+
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                  <button onclick="saveSettingsApiUrl()" id="btn-sync-api" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition shadow-sm">
+                    <i data-lucide="save" class="w-4 h-4 text-amber-400"></i>
+                    <span>Simpan URL Server</span>
+                  </button>
+                  <button onclick="testSettingsApiConnection()" id="btn-test-api" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium transition">
+                    <i data-lucide="wifi" class="w-4 h-4 text-slate-500"></i>
+                    <span>Tes Koneksi Server</span>
+                  </button>
+                </div>
               </div>
             </div>
+
           </div>
         </section>
 
@@ -497,7 +712,7 @@
     <div class="min-h-screen px-4 py-8 flex items-center justify-center">
       <div onclick="closeFormModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
 
-      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
           <div>
             <h2 id="modal-title" class="text-base font-bold text-slate-900">Buat Link Form Baru</h2>
@@ -509,7 +724,6 @@
         </div>
 
         <form id="link-form" onsubmit="handleFormSubmit(event)" class="p-6 space-y-5" novalidate>
-          <!-- Judul Form -->
           <div>
             <label for="input-title" class="block text-xs font-semibold text-slate-700 mb-1.5">
               Nama Form / Judul <span class="text-rose-500">*</span>
@@ -523,7 +737,6 @@
             />
           </div>
 
-          <!-- Link Google Form Asli -->
           <div>
             <div class="flex items-center justify-between mb-1.5">
               <label for="input-target-url" class="block text-xs font-semibold text-slate-700">
@@ -542,7 +755,6 @@
             <p id="url-error-msg" class="hidden mt-1.5 text-xs text-rose-600 font-medium"></p>
           </div>
 
-          <!-- Custom Slug -->
           <div>
             <label for="input-slug" class="block text-xs font-semibold text-slate-700 mb-1.5">
               Custom Link Domain <span class="text-rose-500">*</span>
@@ -567,7 +779,6 @@
             </div>
           </div>
 
-          <!-- Status Toggle -->
           <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
             <div>
               <div class="text-xs font-semibold text-slate-900">Status Tautan Form</div>
@@ -579,7 +790,6 @@
             </label>
           </div>
 
-          <!-- Actions -->
           <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
             <button type="button" onclick="closeFormModal()" class="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
               Batal
@@ -600,7 +810,7 @@
     <div class="min-h-screen px-4 py-8 flex items-center justify-center">
       <div onclick="closeQuickQrModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
 
-      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
           <div class="min-w-0 pr-3">
             <h3 id="quick-qr-title" class="text-base font-bold text-slate-900 truncate">QR Code Form</h3>
@@ -623,7 +833,7 @@
             </button>
             <button onclick="downloadQuickQr('plain')" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition">
               <i data-lucide="image" class="w-4 h-4 text-slate-500"></i>
-              <span>Download PNG (QR Saja)</span>
+              <span>Download PNG (QR Polos)</span>
             </button>
             <button onclick="openInFullQrBuilder()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition">
               <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
@@ -641,7 +851,7 @@
   <div id="delete-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
     <div class="min-h-screen px-4 flex items-center justify-center">
       <div onclick="closeDeleteModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
-      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 animate-fade-slide">
+      <div class="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
         <div class="flex items-start gap-4">
           <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
             <i data-lucide="trash-2" class="w-5 h-5"></i>
@@ -671,7 +881,7 @@
   <div id="test-redirect-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
     <div class="min-h-screen px-4 py-8 flex items-center justify-center">
       <div onclick="closeTestRedirectModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
-      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-fade-slide">
+      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
         <div class="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center gap-3">
           <div class="flex items-center gap-1.5 shrink-0">
             <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
@@ -686,68 +896,125 @@
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </div>
-        <div id="test-preview-body" class="p-8 text-center bg-[#F8FAFC]"></div>
+        <div id="test-preview-body" class="p-8 text-center bg-slate-50"></div>
       </div>
     </div>
   </div>
 
-  <!-- TOAST CONTAINER -->
+  <!-- ===================================================================== -->
+  <!-- MODAL 5: KONFIGURASI SERVER API (LOGIN SCREEN)                        -->
+  <!-- ===================================================================== -->
+  <div id="api-config-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+      <div onclick="closeApiConfigModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
+
+      <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center shrink-0">
+              <i data-lucide="server" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Konfigurasi Server API</h2>
+              <p class="text-xs text-slate-500">Hubungkan portal ke Web App URL Google Apps Script (Code.gs).</p>
+            </div>
+          </div>
+          <button onclick="closeApiConfigModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition" aria-label="Tutup">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <div>
+            <label for="modal-api-url-input" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Google Apps Script Web App URL <span class="text-rose-500">*</span>
+            </label>
+            <input
+              id="modal-api-url-input"
+              type="url"
+              placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+              class="w-full px-3.5 py-2.5 text-sm font-mono bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+            />
+            <p class="mt-1.5 text-[11px] text-slate-400">
+              Tempel URL hasil deploy Web App dari Google Apps Script Anda.
+            </p>
+          </div>
+
+          <div id="modal-api-ping-result" class="hidden p-3 rounded-xl border text-xs font-medium flex items-center gap-2"></div>
+
+          <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              id="btn-modal-ping"
+              onclick="testModalApiConnection()"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium transition"
+            >
+              <i data-lucide="wifi" class="w-4 h-4 text-slate-500"></i>
+              <span>Tes Koneksi</span>
+            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                onclick="closeApiConfigModal()"
+                class="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-50 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onclick="saveModalApiConfig()"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold shadow-sm transition"
+              >
+                <i data-lucide="check" class="w-4 h-4 text-amber-400"></i>
+                <span>Simpan Konfigurasi</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
   <!-- ===================================================================== -->
   <!-- APPLICATION JAVASCRIPT                                                -->
   <!-- ===================================================================== -->
   <script>
-    const DOMAIN_PREFIX = "form.pisangblenger.id/";
-    const STORAGE_KEY_LINKS = "pb_form_links_v2";
-    const STORAGE_KEY_API = "pb_form_api_url_v2";
-    const RESERVED_SLUGS = ["admin", "login", "api", "dashboard", "auth", "settings", "system", "static", "assets", "404"];
+    // -----------------------------------------------------------------------
+    // DEPLOYMENT CONFIGURATION
+    // Paste your Google Apps Script Web App URL below when deploying to
+    // form.pisangblenger.id so all users connect automatically.
+    // -----------------------------------------------------------------------
+    const DEFAULT_API_URL = "";
 
-    const DEFAULT_SAMPLE_LINKS = [
-      {
-        id: "PB-1732400001",
-        slug: "franchise",
-        title: "Pendaftaran Franchise Pisang Blenger 2026",
-        target_url: "https://docs.google.com/forms/d/e/1FAIpQLSeDemoFranchisePisangBlenger/viewform",
-        status: "active",
-        clicks: 184,
-        created_at: new Date(Date.now() - 86400000 * 6).toISOString()
-      },
-      {
-        id: "PB-1732400002",
-        slug: "kritik-saran",
-        title: "Kritik & Saran Pelanggan Outlet",
-        target_url: "https://forms.gle/PisangBlengerKritikSaran",
-        status: "active",
-        clicks: 412,
-        created_at: new Date(Date.now() - 86400000 * 3).toISOString()
-      },
-      {
-        id: "PB-1732400003",
-        slug: "order-catering",
-        title: "Pemesanan Paket Catering & Event",
-        target_url: "https://docs.google.com/forms/d/e/1FAIpQLSeDemoCateringPisangBlenger/viewform",
-        status: "inactive",
-        clicks: 67,
-        created_at: new Date(Date.now() - 86400000 * 1).toISOString()
-      }
-    ];
+    const DOMAIN_PREFIX = "form.pisangblenger.id/";
+    const STORAGE_KEY_API = "pb_api_url";
+    const STORAGE_KEY_SESSION = "pb_admin_session_v3";
+    const RESERVED_SLUGS = ["admin", "login", "api", "dashboard", "auth", "settings", "system", "static", "assets", "404"];
 
     const state = {
       links: [],
-      apiUrl: localStorage.getItem(STORAGE_KEY_API) || "",
+      apiUrl: (localStorage.getItem(STORAGE_KEY_API) || DEFAULT_API_URL || "").trim(),
+      session: null,
       searchQuery: "",
       statusFilter: "all",
       editingId: null,
       deletingId: null,
       quickQrId: null,
       isSlugValid: false,
+      isLoadingLinks: false,
       qrConfig: {
         layout: "card", // 'card' | 'plain'
         color: "#0F172A",
         resolution: 1200
       }
     };
+
+    function getApiUrl() {
+      return (localStorage.getItem(STORAGE_KEY_API) || DEFAULT_API_URL || "").trim();
+    }
 
     // -----------------------------------------------------------------------
     // UTILITIES
@@ -807,15 +1074,13 @@
         error: "bg-rose-600 text-white border-rose-700",
         info: "bg-white text-slate-900 border-slate-200"
       };
-      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium animate-fade-slide ${styles[type] || styles.success}`;
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium transition-all duration-200 ${styles[type] || styles.success}`;
       toast.innerHTML = `<span class="leading-snug">${escapeHtml(message)}</span>`;
       container.appendChild(toast);
       setTimeout(() => {
-        toast.style.opacity = "0";
-        toast.style.transform = "translateY(6px)";
-        toast.style.transition = "all 0.2s ease";
+        toast.classList.add("opacity-0", "translate-y-1");
         setTimeout(() => toast.remove(), 220);
-      }, 3000);
+      }, 3400);
     }
 
     function copyShortLink(slug) {
@@ -837,102 +1102,450 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // DATA PERSISTENCE (LOCALSTORAGE + OPTIONAL GOOGLE APPS SCRIPT API)
-    // -----------------------------------------------------------------------
-    function saveLocalLinks() {
-      localStorage.setItem(STORAGE_KEY_LINKS, JSON.stringify(state.links));
+    function togglePasswordVisibility(inputId, iconId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (!input || !icon) return;
+      const isPassword = input.type === "password";
+      input.type = isPassword ? "text" : "password";
+      icon.setAttribute("data-lucide", isPassword ? "eye-off" : "eye");
+      lucide.createIcons();
     }
 
-    function loadLocalLinks() {
+    // -----------------------------------------------------------------------
+    // SERVER API PING & CONFIGURATION MODAL (LOGIN SCREEN + SETTINGS)
+    // -----------------------------------------------------------------------
+    async function pingServerUrl(url) {
+      if (!url || !isValidHttpUrl(url)) {
+        return { ok: false, message: "Format URL tidak valid. Pastikan diawali https://" };
+      }
       try {
-        const raw = localStorage.getItem(STORAGE_KEY_LINKS);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            state.links = parsed;
-            return;
-          }
+        const res = await fetch(`${url}?action=ping`);
+        const json = await res.json();
+        if (json && (json.status === "success" || json.ok === true || json.status === "ok")) {
+          return { ok: true, message: json.message || "Server database aktif & siap menerima koneksi." };
         }
-      } catch (e) {
-        console.warn("LocalStorage read error:", e);
+        return { ok: false, message: json.message || "Server merespon dengan format tidak dikenal." };
+      } catch (err) {
+        console.error("Ping error:", err);
+        return { ok: false, message: "Gagal menghubungi server. Pastikan deployment Apps Script berstatus Anyone." };
       }
-      state.links = [...DEFAULT_SAMPLE_LINKS];
-      saveLocalLinks();
     }
 
-    function updateConnectionUI() {
-      const indicator = document.getElementById("db-status-indicator");
-      const badge = document.getElementById("settings-mode-badge");
+    function updateLoginServerStatusUI() {
+      state.apiUrl = getApiUrl();
+      const pill = document.getElementById("login-server-status-pill");
+      const missingNotice = document.getElementById("login-api-missing-notice");
+
       if (state.apiUrl) {
-        indicator.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Google Sheets Live</span>`;
-        badge.className = "shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
-        badge.textContent = "Terhubung ke Google Sheets";
+        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Server Siap</span>`;
+        missingNotice.classList.add("hidden");
       } else {
-        indicator.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Mode Lokal (Browser)</span>`;
-        badge.className = "shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200";
-        badge.textContent = "Mode Lokal";
+        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200";
+        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>API Belum Diatur</span>`;
+        missingNotice.classList.remove("hidden");
+      }
+      lucide.createIcons();
+    }
+
+    function openApiConfigModal() {
+      const input = document.getElementById("modal-api-url-input");
+      const resultBox = document.getElementById("modal-api-ping-result");
+      input.value = getApiUrl();
+      resultBox.classList.add("hidden");
+      document.getElementById("api-config-modal").classList.remove("hidden");
+      lucide.createIcons();
+      setTimeout(() => input.focus(), 60);
+    }
+
+    function closeApiConfigModal() {
+      document.getElementById("api-config-modal").classList.add("hidden");
+    }
+
+    async function testModalApiConnection() {
+      const url = document.getElementById("modal-api-url-input").value.trim();
+      const resultBox = document.getElementById("modal-api-ping-result");
+      const btn = document.getElementById("btn-modal-ping");
+
+      btn.disabled = true;
+      resultBox.className = "p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium flex items-center gap-2";
+      resultBox.textContent = "Menghubungi server Google Apps Script...";
+      resultBox.classList.remove("hidden");
+
+      const ping = await pingServerUrl(url);
+      btn.disabled = false;
+
+      if (ping.ok) {
+        resultBox.className = "p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium flex items-center gap-2";
+        resultBox.textContent = "✓ " + ping.message;
+      } else {
+        resultBox.className = "p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium flex items-center gap-2";
+        resultBox.textContent = "✕ " + ping.message;
       }
     }
 
-    async function syncFromApi() {
-      if (!state.apiUrl) {
-        loadLocalLinks();
-        renderAll();
+    function saveModalApiConfig() {
+      const url = document.getElementById("modal-api-url-input").value.trim();
+      if (!url || !isValidHttpUrl(url)) {
+        showToast("Masukkan URL Web App Google Apps Script yang valid.", "error");
         return;
       }
+      localStorage.setItem(STORAGE_KEY_API, url);
+      state.apiUrl = url;
+      document.getElementById("input-api-url").value = url;
+      updateLoginServerStatusUI();
+      closeApiConfigModal();
+      showToast("URL Server API berhasil disimpan!", "success");
+    }
+
+    // -----------------------------------------------------------------------
+    // AUTHENTICATION & SESSION MANAGEMENT (100% DATABASE-BACKED)
+    // -----------------------------------------------------------------------
+    function loadActiveSession() {
       try {
-        const res = await fetch(`${state.apiUrl}?action=list`);
+        const raw = localStorage.getItem(STORAGE_KEY_SESSION) || sessionStorage.getItem(STORAGE_KEY_SESSION);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.username || !parsed.token) return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function isSessionRemembered() {
+      return !!localStorage.getItem(STORAGE_KEY_SESSION);
+    }
+
+    function saveActiveSession(sessionObj, rememberMe) {
+      clearActiveSession();
+      const serialized = JSON.stringify(sessionObj);
+      if (rememberMe) {
+        localStorage.setItem(STORAGE_KEY_SESSION, serialized);
+      } else {
+        sessionStorage.setItem(STORAGE_KEY_SESSION, serialized);
+      }
+      state.session = sessionObj;
+    }
+
+    function clearActiveSession() {
+      localStorage.removeItem(STORAGE_KEY_SESSION);
+      sessionStorage.removeItem(STORAGE_KEY_SESSION);
+      state.session = null;
+    }
+
+    function showLoginView(errorMessage = "") {
+      document.getElementById("public-redirect-view").classList.add("hidden");
+      document.getElementById("admin-app-shell").classList.add("hidden");
+      document.getElementById("admin-login-view").classList.remove("hidden");
+
+      updateLoginServerStatusUI();
+
+      const errBox = document.getElementById("login-error-box");
+      if (errorMessage) {
+        document.getElementById("login-error-text").textContent = errorMessage;
+        errBox.classList.remove("hidden");
+      } else {
+        errBox.classList.add("hidden");
+      }
+
+      document.getElementById("login-password").value = "";
+      lucide.createIcons();
+      setTimeout(() => document.getElementById("login-username").focus(), 60);
+    }
+
+    function updateDisplayedUsername(username) {
+      const cleanName = username || "Admin";
+      document.getElementById("sidebar-username-display").textContent = cleanName;
+      document.getElementById("sidebar-user-avatar").textContent = cleanName.slice(0, 2).toUpperCase();
+      document.getElementById("settings-current-user").textContent = cleanName;
+      document.getElementById("sec-new-username").value = cleanName;
+    }
+
+    function showAdminDashboard() {
+      document.getElementById("public-redirect-view").classList.add("hidden");
+      document.getElementById("admin-login-view").classList.add("hidden");
+      document.getElementById("admin-app-shell").classList.remove("hidden");
+
+      updateDisplayedUsername(state.session ? state.session.username : "Admin");
+      document.getElementById("input-api-url").value = getApiUrl();
+      lucide.createIcons();
+    }
+
+    function setLoginLoading(isLoading) {
+      const btn = document.getElementById("btn-login-submit");
+      const spinner = document.getElementById("login-btn-spinner");
+      const icon = document.getElementById("login-btn-icon");
+      const text = document.getElementById("login-btn-text");
+      btn.disabled = isLoading;
+      spinner.classList.toggle("hidden", !isLoading);
+      icon.classList.toggle("hidden", isLoading);
+      text.textContent = isLoading ? "Memverifikasi ke Database..." : "Masuk Dashboard";
+    }
+
+    async function handleLoginSubmit(event) {
+      event.preventDefault();
+      const username = document.getElementById("login-username").value.trim();
+      const password = document.getElementById("login-password").value;
+      const rememberMe = document.getElementById("login-remember").checked;
+      const errBox = document.getElementById("login-error-box");
+      const errText = document.getElementById("login-error-text");
+
+      errBox.classList.add("hidden");
+
+      const apiUrl = getApiUrl();
+      if (!apiUrl) {
+        errText.textContent = "Server API (Code.gs) belum dikonfigurasi. Klik 'Konfigurasi Server API' terlebih dahulu.";
+        errBox.classList.remove("hidden");
+        return;
+      }
+
+      if (!username || !password) {
+        errText.textContent = "Harap masukkan username dan password.";
+        errBox.classList.remove("hidden");
+        return;
+      }
+
+      setLoginLoading(true);
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "login", username, password })
+        });
         const json = await res.json();
+
+        if (json.status === "success" && json.token) {
+          saveActiveSession({
+            username: json.username || username,
+            token: json.token,
+            loggedInAt: new Date().toISOString()
+          }, rememberMe);
+
+          showAdminDashboard();
+          await syncFromApi();
+          showToast(`Selamat datang, ${json.username || username}!`, "success");
+        } else {
+          errText.textContent = json.message || "Username atau password tidak valid.";
+          errBox.classList.remove("hidden");
+        }
+      } catch (err) {
+        console.error("Login error:", err);
+        errText.textContent = "Gagal menghubungi server database. Periksa koneksi internet atau URL Web App Code.gs.";
+        errBox.classList.remove("hidden");
+      } finally {
+        setLoginLoading(false);
+      }
+    }
+
+    async function handleLogout(isUnauthorized = false) {
+      const currentToken = state.session ? state.session.token : "";
+      const apiUrl = getApiUrl();
+
+      clearActiveSession();
+      state.links = [];
+      toggleMobileSidebar(false);
+
+      if (!isUnauthorized && apiUrl && currentToken) {
+        try {
+          await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ action: "logout", token: currentToken })
+          });
+        } catch (err) {
+          console.warn("Logout server notification failed:", err);
+        }
+      }
+
+      if (isUnauthorized) {
+        showLoginView("Sesi Anda telah berakhir atau tidak valid. Silakan masuk kembali.");
+        showToast("Sesi berakhir. Silakan login kembali.", "error");
+      } else {
+        showLoginView("");
+        showToast("Anda berhasil keluar dari dashboard.", "info");
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // CHANGE USERNAME & PASSWORD (SAVED TO DATABASE VIA CODE.GS)
+    // -----------------------------------------------------------------------
+    function setCredentialsLoading(isLoading) {
+      const btn = document.getElementById("btn-save-credentials");
+      const spinner = document.getElementById("cred-btn-spinner");
+      const icon = document.getElementById("cred-btn-icon");
+      const text = document.getElementById("cred-btn-text");
+      btn.disabled = isLoading;
+      spinner.classList.toggle("hidden", !isLoading);
+      icon.classList.toggle("hidden", isLoading);
+      text.textContent = isLoading ? "Menyimpan ke Database..." : "Simpan ke Database";
+    }
+
+    async function handleUpdateDbCredentials(event) {
+      event.preventDefault();
+
+      const current_password = document.getElementById("sec-current-password").value;
+      const new_username = document.getElementById("sec-new-username").value.trim();
+      const new_password = document.getElementById("sec-new-password").value;
+      const confirm_password = document.getElementById("sec-confirm-password").value;
+
+      if (!current_password) {
+        showToast("Password saat ini wajib diisi.", "error");
+        return;
+      }
+      if (new_username.length < 3) {
+        showToast("Username baru minimal 3 karakter.", "error");
+        return;
+      }
+      if (new_password.length < 6) {
+        showToast("Password baru minimal 6 karakter.", "error");
+        return;
+      }
+      if (new_password !== confirm_password) {
+        showToast("Konfirmasi password baru tidak cocok.", "error");
+        return;
+      }
+
+      setCredentialsLoading(true);
+      try {
+        const res = await postToApi({
+          action: "change_credentials",
+          current_password,
+          new_username,
+          new_password
+        });
+
+        if (res.status === "success") {
+          const updatedUsername = res.username || new_username;
+          const updatedToken = res.token || (state.session ? state.session.token : "");
+
+          saveActiveSession({
+            username: updatedUsername,
+            token: updatedToken,
+            loggedInAt: new Date().toISOString()
+          }, isSessionRemembered());
+
+          updateDisplayedUsername(updatedUsername);
+          document.getElementById("sec-current-password").value = "";
+          document.getElementById("sec-new-password").value = "";
+          document.getElementById("sec-confirm-password").value = "";
+
+          showToast("Username & password berhasil disimpan ke database Google Sheets!", "success");
+        } else {
+          showToast(res.message || "Gagal memperbarui kredensial.", "error");
+        }
+      } catch (err) {
+        console.error("Change credentials error:", err);
+        if (err.message !== "Sesi tidak valid.") {
+          showToast("Gagal menghubungi server: " + err.message, "error");
+        }
+      } finally {
+        setCredentialsLoading(false);
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // API COMMUNICATION (100% LIVE CODE.GS WITH TOKEN)
+    // -----------------------------------------------------------------------
+    async function postToApi(payload) {
+      const apiUrl = getApiUrl();
+      if (!apiUrl) throw new Error("URL Server API belum diatur.");
+      const token = state.session ? state.session.token : "";
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...payload, token })
+      });
+      const json = await res.json();
+
+      if (json.status === "unauthorized") {
+        await handleLogout(true);
+        throw new Error("Sesi tidak valid.");
+      }
+      return json;
+    }
+
+    async function syncFromApi(showSuccessToast = false) {
+      const apiUrl = getApiUrl();
+      if (!apiUrl || !state.session) return;
+
+      state.isLoadingLinks = true;
+      const refreshIcon = document.getElementById("refresh-links-icon");
+      const refreshBtn = document.getElementById("btn-refresh-links");
+      if (refreshIcon) refreshIcon.classList.add("animate-spin");
+      if (refreshBtn) refreshBtn.disabled = true;
+
+      if (state.links.length === 0) {
+        renderLoadingTableState();
+      }
+
+      try {
+        const token = encodeURIComponent(state.session.token || "");
+        const res = await fetch(`${apiUrl}?action=list&token=${token}`);
+        const json = await res.json();
+
+        if (json.status === "unauthorized") {
+          await handleLogout(true);
+          return;
+        }
+
         if (json.status === "success" && Array.isArray(json.data)) {
           state.links = json.data;
-          saveLocalLinks();
           renderAll();
-          showToast("Data berhasil disinkronkan dari Google Sheets.", "success");
+          if (showSuccessToast) {
+            showToast("Data berhasil dimuat ulang dari database.", "success");
+          }
         } else {
-          throw new Error(json.message || "Format respon API tidak valid.");
+          throw new Error(json.message || "Format respon server tidak valid.");
         }
       } catch (err) {
         console.error("API Sync Error:", err);
-        showToast("Gagal terhubung ke API. Menampilkan data lokal terakhir.", "error");
-        loadLocalLinks();
+        showToast("Gagal memuat data dari database. Periksa koneksi Anda.", "error");
         renderAll();
+      } finally {
+        state.isLoadingLinks = false;
+        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
+        if (refreshBtn) refreshBtn.disabled = false;
       }
     }
 
-    async function postToApi(payload) {
-      const res = await fetch(state.apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
+    async function testSettingsApiConnection() {
+      const url = document.getElementById("input-api-url").value.trim();
+      const statusBox = document.getElementById("settings-ping-status");
+      const btn = document.getElementById("btn-test-api");
+
+      btn.disabled = true;
+      statusBox.className = "p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium flex items-center gap-2";
+      statusBox.textContent = "Menghubungi server database...";
+      statusBox.classList.remove("hidden");
+
+      const ping = await pingServerUrl(url);
+      btn.disabled = false;
+
+      if (ping.ok) {
+        statusBox.className = "p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium flex items-center gap-2";
+        statusBox.textContent = "✓ " + ping.message;
+        showToast("Koneksi ke server database aktif!", "success");
+      } else {
+        statusBox.className = "p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium flex items-center gap-2";
+        statusBox.textContent = "✕ " + ping.message;
+        showToast("Tes koneksi gagal.", "error");
+      }
     }
 
-    async function saveAndSyncApi() {
+    async function saveSettingsApiUrl() {
       const url = document.getElementById("input-api-url").value.trim();
-      if (url && !isValidHttpUrl(url)) {
-        showToast("URL Web App tidak valid. Pastikan diawali https://", "error");
+      if (!url || !isValidHttpUrl(url)) {
+        showToast("Masukkan URL Web App yang valid (diawali https://).", "error");
         return;
       }
-      state.apiUrl = url;
       localStorage.setItem(STORAGE_KEY_API, url);
-      updateConnectionUI();
-      if (url) {
-        await syncFromApi();
-      } else {
-        showToast("Beralih ke Mode Lokal (Browser).", "info");
-      }
-    }
-
-    function resetToLocalMode() {
-      document.getElementById("input-api-url").value = "";
-      state.apiUrl = "";
-      localStorage.removeItem(STORAGE_KEY_API);
-      updateConnectionUI();
-      loadLocalLinks();
-      renderAll();
-      showToast("Berhasil reset ke Mode Lokal (Browser).", "info");
+      state.apiUrl = url;
+      showToast("URL Server API diperbarui. Menyinkronkan data...", "info");
+      await syncFromApi(true);
     }
 
     // -----------------------------------------------------------------------
@@ -960,8 +1573,8 @@
         subtitle: "Buat & unduh gambar QR Code resolusi tinggi siap scan untuk setiap formulir"
       },
       settings: {
-        title: "Pengaturan API",
-        subtitle: "Hubungkan portal dengan Google Apps Script (Code.gs) Google Sheets Anda"
+        title: "Pengaturan & Keamanan",
+        subtitle: "Kelola kredensial administrator database dan koneksi Google Apps Script (Code.gs)"
       }
     };
 
@@ -996,6 +1609,18 @@
     // -----------------------------------------------------------------------
     // RENDER DASHBOARD TABLE & KPIS
     // -----------------------------------------------------------------------
+    function renderLoadingTableState() {
+      const tbody = document.getElementById("links-table-body");
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="py-12 px-5 text-center">
+            <div class="mx-auto w-6 h-6 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-3"></div>
+            <p class="text-xs font-medium text-slate-500">Memuat data link form dari database...</p>
+          </td>
+        </tr>
+      `;
+    }
+
     function renderAll() {
       renderDashboard();
       populateQrSelectDropdown();
@@ -1126,7 +1751,7 @@
     }
 
     // -----------------------------------------------------------------------
-    // CREATE / EDIT / TOGGLE / DELETE LINK
+    // CREATE / EDIT / TOGGLE / DELETE LINK (100% LIVE DATABASE)
     // -----------------------------------------------------------------------
     function openFormModal(editId = null) {
       state.editingId = editId;
@@ -1237,14 +1862,14 @@
       if (duplicate) {
         state.isSlugValid = false;
         wrapper.classList.add("border-rose-500");
-        statusBox.innerHTML = `<span class="text-rose-600 font-semibold">✕ Slug "${escapeHtml(slug)}" sudah ada! Tidak bisa disimpan.</span>`;
+        statusBox.innerHTML = `<span class="text-rose-600 font-semibold">✕ Slug sudah dipakai! Tidak bisa disimpan.</span>`;
         submitBtn.disabled = true;
         return;
       }
 
       state.isSlugValid = true;
       wrapper.classList.add("border-emerald-500");
-      statusBox.innerHTML = `<span class="text-emerald-700 font-semibold">✓ Tersedia — ${DOMAIN_PREFIX}${escapeHtml(slug)}</span>`;
+      statusBox.innerHTML = `<span class="text-emerald-700 font-semibold">✓ Slug tersedia — ${DOMAIN_PREFIX}${escapeHtml(slug)}</span>`;
       submitBtn.disabled = false;
     }
 
@@ -1265,80 +1890,74 @@
       }
       evaluateSlugAvailability(slug);
       if (!state.isSlugValid || !slug) {
-        showToast("Slug sudah digunakan! Tidak bisa disimpan.", "error");
+        showToast("Slug sudah dipakai! Gunakan nama lain.", "error");
         return;
       }
 
       const btn = document.getElementById("btn-submit-form");
+      const btnText = document.getElementById("btn-submit-text");
+      const origText = btnText.textContent;
       btn.disabled = true;
+      btnText.textContent = "Menyimpan...";
 
       try {
-        if (state.editingId) {
-          if (state.apiUrl) {
-            const res = await postToApi({ action: "update", id: state.editingId, slug, title, target_url, status });
-            if (res.status === "duplicate") {
-              showToast(res.message, "error");
-              btn.disabled = false;
-              return;
-            }
-            if (res.status !== "success") throw new Error(res.message);
-          }
-          const idx = state.links.findIndex((l) => l.id === state.editingId);
-          if (idx !== -1) {
-            state.links[idx] = { ...state.links[idx], slug, title, target_url, status };
-          }
-          showToast(`Link "${DOMAIN_PREFIX}${slug}" berhasil diperbarui.`, "success");
-        } else {
-          let newItem = {
-            id: "PB-" + Date.now(),
-            slug,
-            title,
-            target_url,
-            status,
-            clicks: 0,
-            created_at: new Date().toISOString()
-          };
-          if (state.apiUrl) {
-            const res = await postToApi({ action: "create", slug, title, target_url, status });
-            if (res.status === "duplicate") {
-              showToast(res.message, "error");
-              btn.disabled = false;
-              return;
-            }
-            if (res.status !== "success") throw new Error(res.message);
-            if (res.data) newItem = res.data;
-          }
-          state.links.unshift(newItem);
-          showToast(`Link baru "${DOMAIN_PREFIX}${slug}" berhasil disimpan!`, "success");
+        const payload = state.editingId
+          ? { action: "update", id: state.editingId, slug, title, target_url, status }
+          : { action: "create", slug, title, target_url, status };
+
+        const res = await postToApi(payload);
+
+        if (res.status === "duplicate") {
+          showToast(res.message || "Slug sudah terdaftar di database! Gunakan nama lain.", "error");
+          btn.disabled = false;
+          btnText.textContent = origText;
+          return;
+        }
+        if (res.status !== "success") {
+          throw new Error(res.message || "Gagal menyimpan data.");
         }
 
-        saveLocalLinks();
-        renderAll();
+        showToast(
+          state.editingId
+            ? `Link "${DOMAIN_PREFIX}${slug}" berhasil diperbarui.`
+            : `Link baru "${DOMAIN_PREFIX}${slug}" berhasil disimpan ke database!`,
+          "success"
+        );
         closeFormModal();
+        await syncFromApi();
       } catch (err) {
         console.error(err);
-        showToast("Gagal menyimpan data: " + err.message, "error");
+        if (err.message !== "Sesi tidak valid.") {
+          showToast("Gagal menyimpan data: " + err.message, "error");
+        }
       } finally {
         btn.disabled = false;
+        btnText.textContent = origText;
       }
     }
 
     async function toggleLinkStatus(id) {
       const item = state.links.find((l) => l.id === id);
       if (!item) return;
-      const nextStatus = item.status === "active" ? "inactive" : "active";
+
+      const prevStatus = item.status;
+      const nextStatus = prevStatus === "active" ? "inactive" : "active";
       item.status = nextStatus;
-      saveLocalLinks();
       renderAll();
 
-      if (state.apiUrl) {
-        try {
-          await postToApi({ action: "toggle", id });
-        } catch (err) {
-          console.error(err);
+      try {
+        const res = await postToApi({ action: "toggle", id });
+        if (res.status !== "success") {
+          throw new Error(res.message || "Gagal mengubah status.");
+        }
+        showToast(`Status "${item.slug}" diubah menjadi ${nextStatus === "active" ? "Aktif" : "Nonaktif"}.`, "info");
+      } catch (err) {
+        item.status = prevStatus;
+        renderAll();
+        if (err.message !== "Sesi tidak valid.") {
+          showToast("Gagal mengubah status di database: " + err.message, "error");
         }
       }
-      showToast(`Status "${item.slug}" diubah menjadi ${nextStatus === "active" ? "Aktif" : "Nonaktif"}.`, "info");
     }
 
     function openDeleteModal(id) {
@@ -1359,18 +1978,27 @@
       if (!state.deletingId) return;
       const id = state.deletingId;
       const item = state.links.find((l) => l.id === id);
-      if (state.apiUrl) {
-        try {
-          await postToApi({ action: "delete", id });
-        } catch (err) {
-          console.error(err);
+      const btn = document.getElementById("btn-confirm-delete");
+      btn.disabled = true;
+      btn.textContent = "Menghapus...";
+
+      try {
+        const res = await postToApi({ action: "delete", id });
+        if (res.status !== "success") {
+          throw new Error(res.message || "Gagal menghapus data.");
         }
+        closeDeleteModal();
+        showToast(`Link "${item ? item.slug : ""}" telah dihapus dari database.`, "info");
+        await syncFromApi();
+      } catch (err) {
+        console.error(err);
+        if (err.message !== "Sesi tidak valid.") {
+          showToast("Gagal menghapus link: " + err.message, "error");
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Ya, Hapus Permanen";
       }
-      state.links = state.links.filter((l) => l.id !== id);
-      saveLocalLinks();
-      renderAll();
-      closeDeleteModal();
-      showToast(`Link "${item ? item.slug : ""}" telah dihapus.`, "info");
     }
 
     // -----------------------------------------------------------------------
@@ -1403,21 +2031,17 @@
       return lines.slice(0, 2);
     }
 
-    /**
-     * Renders either a Branded Printable QR Card or a Plain Scannable QR onto a Canvas.
-     */
     function renderQrToCanvas(canvas, options) {
       const {
         url,
         title = "",
         slug = "",
-        cta = "Scan untuk membuka form",
+        cta = "Scan untuk Mengisi Formulir",
         layout = "card",
         color = "#0F172A",
         size = 1200
       } = options;
 
-      // Generate QR matrix with High error correction ('H') for effortless scanning
       const qr = qrcode(0, "H");
       qr.addData(url);
       qr.make();
@@ -1426,10 +2050,8 @@
       const ctx = canvas.getContext("2d");
 
       if (layout === "plain") {
-        // Pure crisp white square with generous quiet zone (4 modules)
         canvas.width = size;
         canvas.height = size;
-
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, size, size);
 
@@ -1450,30 +2072,25 @@
         return;
       }
 
-      // BRANDED PRINTABLE CARD LAYOUT (4:5 Portrait Aspect Ratio)
+      // BRANDED PRINTABLE CARD LAYOUT
       const width = size;
       const height = Math.round(size * 1.28);
       canvas.width = width;
       canvas.height = height;
+      const s = width / 1200;
 
-      const s = width / 1200; // Scale factor relative to 1200px base
-
-      // Background
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle outer corporate border
       ctx.strokeStyle = "#E2E8F0";
       ctx.lineWidth = 4 * s;
       drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, height - 40 * s, 44 * s);
       ctx.stroke();
 
-      // Top Amber Accent Bar
       ctx.fillStyle = "#F59E0B";
       drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, 18 * s, 9 * s);
       ctx.fill();
 
-      // Brand Header Pill: PISANG BLENGER
       const pillW = 380 * s;
       const pillH = 64 * s;
       const pillX = (width - pillW) / 2;
@@ -1488,7 +2105,6 @@
       ctx.textBaseline = "middle";
       ctx.fillText("PISANG BLENGER", width / 2, pillY + pillH / 2 + 1 * s);
 
-      // Form Title (max 2 lines)
       ctx.fillStyle = "#0F172A";
       ctx.font = `700 ${46 * s}px Inter, system-ui, sans-serif`;
       const titleLines = wrapCanvasText(ctx, title || "Formulir Resmi", width - 160 * s);
@@ -1498,7 +2114,6 @@
         titleY += 58 * s;
       });
 
-      // QR Code Frame Box with guaranteed quiet zone
       const qrBoxSize = 740 * s;
       const qrBoxX = (width - qrBoxSize) / 2;
       const qrBoxY = titleLines.length > 1 ? 315 * s : 285 * s;
@@ -1510,7 +2125,6 @@
       ctx.fill();
       ctx.stroke();
 
-      // Draw crisp QR modules centered inside box (with quiet zone padding)
       const qrPadding = 58 * s;
       const availableQrPx = qrBoxSize - qrPadding * 2;
       const cellSize = Math.floor(availableQrPx / moduleCount);
@@ -1527,7 +2141,6 @@
         }
       }
 
-      // Short URL Pill below QR
       const urlY = qrBoxY + qrBoxSize + 72 * s;
       const displayUrl = `${DOMAIN_PREFIX}${slug}`;
       ctx.font = `600 ${34 * s}px monospace`;
@@ -1545,11 +2158,10 @@
       ctx.fillStyle = "#0F172A";
       ctx.fillText(displayUrl, width / 2, urlY + 1 * s);
 
-      // Call-to-Action Text at Bottom
       const ctaY = urlY + 86 * s;
       ctx.fillStyle = "#475569";
       ctx.font = `600 ${32 * s}px Inter, system-ui, sans-serif`;
-      ctx.fillText(cta || "Scan untuk membuka form", width / 2, ctaY);
+      ctx.fillText(cta || "Scan untuk Mengisi Formulir", width / 2, ctaY);
     }
 
     function triggerCanvasDownload(canvas, filename) {
@@ -1562,7 +2174,7 @@
     }
 
     // -----------------------------------------------------------------------
-    // QUICK QR MODAL (FROM TABLE ROW)
+    // QUICK QR MODAL
     // -----------------------------------------------------------------------
     function openQuickQrModal(id) {
       const item = state.links.find((l) => l.id === id);
@@ -1598,7 +2210,7 @@
         url: `https://${DOMAIN_PREFIX}${item.slug}`,
         title: item.title,
         slug: item.slug,
-        cta: "Scan untuk membuka form",
+        cta: "Scan untuk Mengisi Formulir",
         layout: layoutType,
         color: "#0F172A",
         size: 1200
@@ -1620,7 +2232,7 @@
     }
 
     // -----------------------------------------------------------------------
-    // DEDICATED QR CODE BUILDER TAB
+    // QR CODE BUILDER TAB
     // -----------------------------------------------------------------------
     function populateQrSelectDropdown() {
       const select = document.getElementById("qr-select-link");
@@ -1669,8 +2281,8 @@
       document.querySelectorAll(".qr-res-btn").forEach((btn) => {
         const isSelected = Number(btn.dataset.qrRes) === res;
         btn.className = isSelected
-          ? "qr-res-btn px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
-          : "qr-res-btn px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition";
+          ? "qr-res-btn px-2.5 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
+          : "qr-res-btn px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition";
       });
       renderBuilderCanvas();
     }
@@ -1683,6 +2295,11 @@
 
       if (!item) {
         urlDisplay.textContent = "Buat link form terlebih dahulu";
+        const ctx = canvas.getContext("2d");
+        canvas.width = 400;
+        canvas.height = 400;
+        ctx.fillStyle = "#F8FAFC";
+        ctx.fillRect(0, 0, 400, 400);
         return;
       }
 
@@ -1693,7 +2310,7 @@
         url: fullUrl,
         title: item.title,
         slug: item.slug,
-        cta: document.getElementById("qr-cta-input").value.trim() || "Scan untuk membuka form",
+        cta: document.getElementById("qr-cta-input").value.trim() || "Scan untuk Mengisi Formulir",
         layout: state.qrConfig.layout,
         color: state.qrConfig.color,
         size: state.qrConfig.resolution
@@ -1743,7 +2360,7 @@
       } else {
         body.innerHTML = `
           <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700 mb-2">Status: Nonaktif</span>
-          <h3 class="text-lg font-bold text-slate-900 mb-1">Form Tidak Tersedia</h3>
+          <h3 class="text-lg font-bold text-slate-900 mb-1">Form Dinonaktifkan</h3>
           <p class="text-sm text-slate-500 mb-6">
             Pengunjung yang membuka <strong>${DOMAIN_PREFIX}${escapeHtml(record.slug)}</strong> akan melihat halaman ini karena status form sedang <strong>Nonaktif</strong>.
           </p>
@@ -1758,11 +2375,7 @@
     function executeTestRedirect(id) {
       const record = state.links.find((l) => l.id === id);
       if (!record) return;
-      record.clicks = (Number(record.clicks) || 0) + 1;
-      saveLocalLinks();
-      renderAll();
       window.open(record.target_url, "_blank", "noopener,noreferrer");
-      showToast("Simulasi redirect berhasil (+1 klik tercatat).", "success");
       closeTestRedirectModal();
     }
 
@@ -1771,54 +2384,86 @@
     }
 
     // -----------------------------------------------------------------------
-    // PUBLIC REDIRECTOR MODE (IF ?slug=xxxx)
+    // PUBLIC REDIRECTOR MODE (?slug=xxxx, ?s=xxxx, or #/go/xxxx) — NO LOGIN!
     // -----------------------------------------------------------------------
-    function checkPublicRedirect() {
+    function extractPublicSlug() {
       const params = new URLSearchParams(window.location.search);
-      const querySlug = finalizeSlug(params.get("slug"));
-      if (!querySlug || RESERVED_SLUGS.includes(querySlug)) return false;
+      const paramSlug = params.get("slug") || params.get("s");
+      if (paramSlug) return finalizeSlug(paramSlug);
 
+      const hash = window.location.hash || "";
+      const match = hash.match(/^#\/go\/([^/?#]+)/i);
+      if (match && match[1]) return finalizeSlug(decodeURIComponent(match[1]));
+
+      return "";
+    }
+
+    function showPublicRedirectError(title, desc) {
+      document.getElementById("redirect-state-loading").classList.add("hidden");
+      document.getElementById("redirect-state-error").classList.remove("hidden");
+      document.getElementById("redirect-error-title").textContent = title;
+      document.getElementById("redirect-error-desc").textContent = desc;
+      lucide.createIcons();
+    }
+
+    async function runPublicRedirect(slug) {
+      document.getElementById("admin-login-view").classList.add("hidden");
       document.getElementById("admin-app-shell").classList.add("hidden");
       document.getElementById("public-redirect-view").classList.remove("hidden");
-      document.getElementById("redirect-slug-display").textContent = `${DOMAIN_PREFIX}${querySlug}`;
+      document.getElementById("redirect-slug-display").textContent = `${DOMAIN_PREFIX}${slug}`;
+      lucide.createIcons();
 
-      const record = state.links.find((l) => l.slug.toLowerCase() === querySlug);
-      if (!record) {
-        document.getElementById("redirect-state-loading").classList.add("hidden");
-        document.getElementById("redirect-state-error").classList.remove("hidden");
-        document.getElementById("redirect-error-title").textContent = "Form Tidak Ditemukan (404)";
-        document.getElementById("redirect-error-desc").textContent = `Alamat ${DOMAIN_PREFIX}${querySlug} tidak terdaftar dalam sistem.`;
-        return true;
-      }
-      if (record.status !== "active") {
-        document.getElementById("redirect-state-loading").classList.add("hidden");
-        document.getElementById("redirect-state-error").classList.remove("hidden");
-        document.getElementById("redirect-error-title").textContent = "Form Sedang Nonaktif";
-        document.getElementById("redirect-error-desc").textContent = `Formulir "${record.title}" saat ini sedang ditutup oleh administrator.`;
-        return true;
+      const apiUrl = getApiUrl();
+      if (!apiUrl) {
+        showPublicRedirectError(
+          "Server Belum Dikonfigurasi",
+          "Tautan tidak dapat diproses karena URL Server Database (Code.gs) belum diatur oleh administrator."
+        );
+        return;
       }
 
-      document.getElementById("redirect-form-title").textContent = `Membuka "${record.title}"...`;
-      const manual = document.getElementById("redirect-manual-link");
-      manual.href = record.target_url;
-      manual.classList.remove("hidden");
+      try {
+        const res = await fetch(`${apiUrl}?action=resolve&slug=${encodeURIComponent(slug)}`);
+        const json = await res.json();
 
-      record.clicks = (Number(record.clicks) || 0) + 1;
-      saveLocalLinks();
-      setTimeout(() => window.location.replace(record.target_url), 700);
-      return true;
+        if (json.status === "success" && json.data && json.data.target_url) {
+          document.getElementById("redirect-form-title").textContent = `Membuka "${json.data.title || slug}"...`;
+          const manual = document.getElementById("redirect-manual-link");
+          manual.href = json.data.target_url;
+          manual.classList.remove("hidden");
+          setTimeout(() => window.location.replace(json.data.target_url), 550);
+          return;
+        }
+
+        if (json.status === "inactive") {
+          showPublicRedirectError(
+            "Form Dinonaktifkan",
+            `Formulir "${json.title || slug}" saat ini sedang dinonaktifkan oleh administrator.`
+          );
+          return;
+        }
+
+        showPublicRedirectError(
+          "Link Tidak Ditemukan (404)",
+          `Alamat ${DOMAIN_PREFIX}${slug} tidak terdaftar dalam sistem.`
+        );
+      } catch (err) {
+        console.error("Public redirect error:", err);
+        showPublicRedirectError(
+          "Gagal Menghubungi Server",
+          "Terjadi gangguan koneksi saat mengambil data formulir. Silakan muat ulang halaman beberapa saat lagi."
+        );
+      }
     }
 
     function exitPublicRedirectToAdmin() {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, "", cleanUrl);
-      document.getElementById("public-redirect-view").classList.add("hidden");
-      document.getElementById("admin-app-shell").classList.remove("hidden");
-      renderAll();
+      bootstrapAdminView();
     }
 
     // -----------------------------------------------------------------------
-    // BOOTSTRAP
+    // BOOTSTRAP APPLICATION
     // -----------------------------------------------------------------------
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -1826,22 +2471,35 @@
         closeQuickQrModal();
         closeDeleteModal();
         closeTestRedirectModal();
+        closeApiConfigModal();
       }
     });
 
-    (async function init() {
+    async function bootstrapAdminView() {
+      state.apiUrl = getApiUrl();
       document.getElementById("input-api-url").value = state.apiUrl;
-      updateConnectionUI();
-      loadLocalLinks();
+      state.session = loadActiveSession();
 
-      if (state.apiUrl) {
-        await syncFromApi();
-      } else {
-        renderAll();
+      if (!state.session || !state.apiUrl) {
+        clearActiveSession();
+        showLoginView();
+        return;
       }
 
-      checkPublicRedirect();
-      lucide.createIcons();
+      showAdminDashboard();
+      await syncFromApi();
+    }
+
+    (async function init() {
+      // 1. Check Public Redirect Mode FIRST (bypasses login completely!)
+      const publicSlug = extractPublicSlug();
+      if (publicSlug && !RESERVED_SLUGS.includes(publicSlug)) {
+        await runPublicRedirect(publicSlug);
+        return;
+      }
+
+      // 2. Otherwise enter protected Admin flow
+      await bootstrapAdminView();
     })();
   </script>
 </body>
