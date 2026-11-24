@@ -42,7 +42,7 @@
 <body class="bg-slate-50 text-slate-900 font-sans selection:bg-amber-100 selection:text-slate-900 overflow-x-hidden">
 
   <!-- ===================================================================== -->
-  <!-- VIEW 1: PUBLIC REDIRECTOR (TANPA LOGIN — ?slug= / ?s= / #/go/xxxx)    -->
+  <!-- VIEW 1: PUBLIC REDIRECTOR (TANPA LOGIN — /xxxx, ?slug=, ?s=, #/go/)   -->
   <!-- ===================================================================== -->
   <div id="public-redirect-view" class="hidden min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
     <div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center">
@@ -58,9 +58,9 @@
         <h1 class="text-lg font-bold text-slate-900 mb-1">Mengalihkan ke Formulir...</h1>
         <p class="text-sm text-slate-500" id="redirect-form-title">Mohon tunggu sebentar, sistem sedang menyiapkan formulir Anda.</p>
         <div class="mt-6 pt-5 border-t border-slate-100">
-          <a id="redirect-manual-link" href="#" class="hidden inline-flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 transition">
-            <span>Klik di sini jika tidak dialihkan otomatis</span>
-            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <a id="redirect-manual-link" href="#" class="hidden inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition w-full">
+            <span>Buka Form Sekarang</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 text-amber-400"></i>
           </a>
         </div>
       </div>
@@ -385,6 +385,16 @@
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
             <!-- Toolbar -->
             <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="relative flex-1 max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input
+                  id="search-links-input"
+                  type="text"
+                  oninput="handleSearchChange(this.value)"
+                  placeholder="Cari nama form, slug, atau link GForm..."
+                  class="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                />
+              </div>
               <div class="flex items-center gap-2 self-start sm:self-auto">
                 <div class="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200/80">
                   <button onclick="setStatusFilter('all')" data-filter="all" class="filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm">
@@ -984,27 +994,27 @@
   <script>
     // -----------------------------------------------------------------------
     // DEPLOYMENT CONFIGURATION
-    // Paste your Google Apps Script Web App URL below when deploying to
-    // form.pisangblenger.id so all users connect automatically.
+    // Hardcoded Google Apps Script Web App URL for form.pisangblenger.id
     // -----------------------------------------------------------------------
-    const DEFAULT_API_URL = "";
+    const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxXGsMm5yVp6mNamQFpm4LBv0siycwJRVqWhEZ9v7QDvSfjuXb1fmYsaGcx9ZzSz9e9/exec";
 
     const DOMAIN_PREFIX = "form.pisangblenger.id/";
     const STORAGE_KEY_API = "pb_api_url";
     const STORAGE_KEY_SESSION = "pb_admin_session_v3";
-    const RESERVED_SLUGS = ["admin", "login", "api", "dashboard", "auth", "settings", "system", "static", "assets", "404"];
+    const RESERVED_SLUGS = ["admin", "login", "api", "dashboard", "auth", "settings", "system", "static", "assets", "404", "index.html", "404.html"];
 
     const state = {
-      links: [],
-      apiUrl: (localStorage.getItem(STORAGE_KEY_API) || DEFAULT_API_URL || "").trim(),
       session: null,
+      links: [],
       searchQuery: "",
       statusFilter: "all",
+      activeSection: "links",
       editingId: null,
       deletingId: null,
       quickQrId: null,
       isSlugValid: false,
       isLoadingLinks: false,
+      slugCheckTimer: null,
       qrConfig: {
         layout: "card", // 'card' | 'plain'
         color: "#0F172A",
@@ -1031,10 +1041,28 @@
       return sanitizeSlug(raw).replace(/^-+|-+$/g, "");
     }
 
+    function normalizeTargetUrl(url) {
+      let clean = String(url || "").trim();
+      if (!clean) return "";
+      if (!/^https?:\/\//i.test(clean)) {
+        clean = "https://" + clean;
+      }
+      return clean;
+    }
+
+    function isSelfDomainUrl(str) {
+      try {
+        const parsed = new URL(normalizeTargetUrl(str));
+        return parsed.hostname.toLowerCase() === "form.pisangblenger.id";
+      } catch {
+        return false;
+      }
+    }
+
     function isValidHttpUrl(str) {
       try {
-        const parsed = new URL(str.trim());
-        return parsed.protocol === "http:" || parsed.protocol === "https:";
+        const parsed = new URL(normalizeTargetUrl(str));
+        return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.hostname.includes(".");
       } catch {
         return false;
       }
@@ -1042,7 +1070,7 @@
 
     function isGoogleFormUrl(str) {
       try {
-        const parsed = new URL(str.trim());
+        const parsed = new URL(normalizeTargetUrl(str));
         const host = parsed.hostname.toLowerCase();
         return host === "forms.gle" || (host === "docs.google.com" && parsed.pathname.toLowerCase().includes("/forms"));
       } catch {
@@ -1056,50 +1084,58 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/'/g, "&#39;");
     }
 
-    function formatDateIndo(iso) {
-      if (!iso) return "Baru saja";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "Baru saja";
-      return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
-    }
-
-    function showToast(message, type = "success") {
-      const container = document.getElementById("toast-container");
-      const toast = document.createElement("div");
-      const styles = {
-        success: "bg-slate-900 text-white border-slate-800",
-        error: "bg-rose-600 text-white border-rose-700",
-        info: "bg-white text-slate-900 border-slate-200"
-      };
-      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium transition-all duration-200 ${styles[type] || styles.success}`;
-      toast.innerHTML = `<span class="leading-snug">${escapeHtml(message)}</span>`;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.add("opacity-0", "translate-y-1");
-        setTimeout(() => toast.remove(), 220);
-      }, 3400);
-    }
-
-    function copyShortLink(slug) {
-      const fullUrl = `https://${DOMAIN_PREFIX}${slug}`;
+    function copyTextToClipboard(text) {
       try {
-        const tempInput = document.createElement("textarea");
-        tempInput.value = fullUrl;
-        tempInput.setAttribute("readonly", "");
-        tempInput.style.position = "fixed";
-        tempInput.style.opacity = "0";
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        tempInput.setSelectionRange(0, 99999);
-        document.execCommand("copy");
-        document.body.removeChild(tempInput);
-        showToast(`Link disalin: ${DOMAIN_PREFIX}${slug}`, "success");
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.top = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        return ok;
       } catch {
-        showToast("Gagal menyalin link.", "error");
+        return false;
       }
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toast-container");
+      if (!container) return;
+
+      const styles = {
+        success: "bg-slate-900 text-white border-emerald-500/40",
+        error: "bg-rose-600 text-white border-rose-500",
+        info: "bg-slate-800 text-white border-slate-700"
+      };
+      const icons = {
+        success: "check-circle-2",
+        error: "alert-circle",
+        info: "info"
+      };
+
+      const toast = document.createElement("div");
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium transition-all duration-200 translate-y-2 opacity-0 ${styles[type] || styles.info}`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type] || icons.info}" class="w-4 h-4 shrink-0 ${type === "success" ? "text-emerald-400" : "text-white"}"></i>
+        <span class="flex-1">${escapeHtml(message)}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("translate-y-2", "opacity-0");
+        setTimeout(() => toast.remove(), 220);
+      }, 3200);
     }
 
     function togglePasswordVisibility(inputId, iconId) {
@@ -1113,448 +1149,261 @@
     }
 
     // -----------------------------------------------------------------------
-    // SERVER API PING & CONFIGURATION MODAL (LOGIN SCREEN + SETTINGS)
+    // SESSION & API HELPERS
     // -----------------------------------------------------------------------
-    async function pingServerUrl(url) {
-      if (!url || !isValidHttpUrl(url)) {
-        return { ok: false, message: "Format URL tidak valid. Pastikan diawali https://" };
-      }
-      try {
-        const res = await fetch(`${url}?action=ping`);
-        const json = await res.json();
-        if (json && (json.status === "success" || json.ok === true || json.status === "ok")) {
-          return { ok: true, message: json.message || "Server database aktif & siap menerima koneksi." };
-        }
-        return { ok: false, message: json.message || "Server merespon dengan format tidak dikenal." };
-      } catch (err) {
-        console.error("Ping error:", err);
-        return { ok: false, message: "Gagal menghubungi server. Pastikan deployment Apps Script berstatus Anyone." };
-      }
-    }
-
-    function updateLoginServerStatusUI() {
-      state.apiUrl = getApiUrl();
-      const pill = document.getElementById("login-server-status-pill");
-      const missingNotice = document.getElementById("login-api-missing-notice");
-
-      if (state.apiUrl) {
-        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
-        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Server Siap</span>`;
-        missingNotice.classList.add("hidden");
-      } else {
-        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200";
-        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>API Belum Diatur</span>`;
-        missingNotice.classList.remove("hidden");
-      }
-      lucide.createIcons();
-    }
-
-    function openApiConfigModal() {
-      const input = document.getElementById("modal-api-url-input");
-      const resultBox = document.getElementById("modal-api-ping-result");
-      input.value = getApiUrl();
-      resultBox.classList.add("hidden");
-      document.getElementById("api-config-modal").classList.remove("hidden");
-      lucide.createIcons();
-      setTimeout(() => input.focus(), 60);
-    }
-
-    function closeApiConfigModal() {
-      document.getElementById("api-config-modal").classList.add("hidden");
-    }
-
-    async function testModalApiConnection() {
-      const url = document.getElementById("modal-api-url-input").value.trim();
-      const resultBox = document.getElementById("modal-api-ping-result");
-      const btn = document.getElementById("btn-modal-ping");
-
-      btn.disabled = true;
-      resultBox.className = "p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium flex items-center gap-2";
-      resultBox.textContent = "Menghubungi server Google Apps Script...";
-      resultBox.classList.remove("hidden");
-
-      const ping = await pingServerUrl(url);
-      btn.disabled = false;
-
-      if (ping.ok) {
-        resultBox.className = "p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium flex items-center gap-2";
-        resultBox.textContent = "✓ " + ping.message;
-      } else {
-        resultBox.className = "p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium flex items-center gap-2";
-        resultBox.textContent = "✕ " + ping.message;
-      }
-    }
-
-    function saveModalApiConfig() {
-      const url = document.getElementById("modal-api-url-input").value.trim();
-      if (!url || !isValidHttpUrl(url)) {
-        showToast("Masukkan URL Web App Google Apps Script yang valid.", "error");
-        return;
-      }
-      localStorage.setItem(STORAGE_KEY_API, url);
-      state.apiUrl = url;
-      document.getElementById("input-api-url").value = url;
-      updateLoginServerStatusUI();
-      closeApiConfigModal();
-      showToast("URL Server API berhasil disimpan!", "success");
-    }
-
-    // -----------------------------------------------------------------------
-    // AUTHENTICATION & SESSION MANAGEMENT (100% DATABASE-BACKED)
-    // -----------------------------------------------------------------------
-    function loadActiveSession() {
+    function loadSavedSession() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY_SESSION) || sessionStorage.getItem(STORAGE_KEY_SESSION);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.username || !parsed.token) return null;
-        return parsed;
+        if (parsed && parsed.token && parsed.username) return parsed;
+        return null;
       } catch {
         return null;
       }
     }
 
-    function isSessionRemembered() {
-      return !!localStorage.getItem(STORAGE_KEY_SESSION);
-    }
-
-    function saveActiveSession(sessionObj, rememberMe) {
-      clearActiveSession();
+    function saveSession(sessionObj, remember = true) {
+      state.session = sessionObj;
       const serialized = JSON.stringify(sessionObj);
-      if (rememberMe) {
+      if (remember) {
         localStorage.setItem(STORAGE_KEY_SESSION, serialized);
+        sessionStorage.removeItem(STORAGE_KEY_SESSION);
       } else {
         sessionStorage.setItem(STORAGE_KEY_SESSION, serialized);
+        localStorage.removeItem(STORAGE_KEY_SESSION);
       }
-      state.session = sessionObj;
     }
 
-    function clearActiveSession() {
+    function clearSession() {
+      state.session = null;
       localStorage.removeItem(STORAGE_KEY_SESSION);
       sessionStorage.removeItem(STORAGE_KEY_SESSION);
-      state.session = null;
     }
 
-    function showLoginView(errorMessage = "") {
+    function handleUnauthorized(msg) {
+      clearSession();
+      showAdminLoginView(msg || "Sesi Anda telah berakhir. Silakan login kembali.");
+    }
+
+    async function apiPost(payload) {
+      const apiUrl = getApiUrl();
+      if (!apiUrl) throw new Error("URL Server API belum diatur.");
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.status === "unauthorized") {
+        handleUnauthorized(json.message);
+        return json;
+      }
+      return json;
+    }
+
+    // -----------------------------------------------------------------------
+    // LOGIN & SERVER CONFIG FLOW
+    // -----------------------------------------------------------------------
+    function showAdminLoginView(errorMessage = "") {
       document.getElementById("public-redirect-view").classList.add("hidden");
       document.getElementById("admin-app-shell").classList.add("hidden");
       document.getElementById("admin-login-view").classList.remove("hidden");
 
-      updateLoginServerStatusUI();
-
       const errBox = document.getElementById("login-error-box");
+      const errText = document.getElementById("login-error-text");
       if (errorMessage) {
-        document.getElementById("login-error-text").textContent = errorMessage;
+        errText.textContent = errorMessage;
         errBox.classList.remove("hidden");
       } else {
         errBox.classList.add("hidden");
       }
 
-      document.getElementById("login-password").value = "";
-      lucide.createIcons();
-      setTimeout(() => document.getElementById("login-username").focus(), 60);
-    }
-
-    function updateDisplayedUsername(username) {
-      const cleanName = username || "Admin";
-      document.getElementById("sidebar-username-display").textContent = cleanName;
-      document.getElementById("sidebar-user-avatar").textContent = cleanName.slice(0, 2).toUpperCase();
-      document.getElementById("settings-current-user").textContent = cleanName;
-      document.getElementById("sec-new-username").value = cleanName;
-    }
-
-    function showAdminDashboard() {
-      document.getElementById("public-redirect-view").classList.add("hidden");
-      document.getElementById("admin-login-view").classList.add("hidden");
-      document.getElementById("admin-app-shell").classList.remove("hidden");
-
-      updateDisplayedUsername(state.session ? state.session.username : "Admin");
-      document.getElementById("input-api-url").value = getApiUrl();
+      checkLoginServerStatus();
       lucide.createIcons();
     }
 
-    function setLoginLoading(isLoading) {
-      const btn = document.getElementById("btn-login-submit");
-      const spinner = document.getElementById("login-btn-spinner");
-      const icon = document.getElementById("login-btn-icon");
-      const text = document.getElementById("login-btn-text");
-      btn.disabled = isLoading;
-      spinner.classList.toggle("hidden", !isLoading);
-      icon.classList.toggle("hidden", isLoading);
-      text.textContent = isLoading ? "Memverifikasi ke Database..." : "Masuk Dashboard";
+    async function checkLoginServerStatus() {
+      const pill = document.getElementById("login-server-status-pill");
+      const missingNotice = document.getElementById("login-api-missing-notice");
+      const apiUrl = getApiUrl();
+
+      if (!apiUrl) {
+        missingNotice.classList.remove("hidden");
+        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200";
+        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>API Belum Diatur</span>`;
+        return;
+      }
+
+      missingNotice.classList.add("hidden");
+      pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200";
+      pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span><span>Cek Server...</span>`;
+
+      try {
+        const res = await fetch(`${apiUrl}?action=ping`);
+        const json = await res.json();
+        if (json.status === "success") {
+          pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+          pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Server Online</span>`;
+        } else {
+          throw new Error(json.message || "Respon tidak valid");
+        }
+      } catch {
+        pill.className = "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
+        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span><span>Server Offline</span>`;
+      }
     }
 
     async function handleLoginSubmit(event) {
       event.preventDefault();
       const username = document.getElementById("login-username").value.trim();
       const password = document.getElementById("login-password").value;
-      const rememberMe = document.getElementById("login-remember").checked;
+      const remember = document.getElementById("login-remember").checked;
       const errBox = document.getElementById("login-error-box");
       const errText = document.getElementById("login-error-text");
 
       errBox.classList.add("hidden");
 
-      const apiUrl = getApiUrl();
-      if (!apiUrl) {
-        errText.textContent = "Server API (Code.gs) belum dikonfigurasi. Klik 'Konfigurasi Server API' terlebih dahulu.";
+      if (!getApiUrl()) {
+        errText.textContent = "URL Server Database (Code.gs) belum dikonfigurasi.";
         errBox.classList.remove("hidden");
         return;
       }
-
       if (!username || !password) {
-        errText.textContent = "Harap masukkan username dan password.";
+        errText.textContent = "Username dan password wajib diisi.";
         errBox.classList.remove("hidden");
         return;
       }
 
-      setLoginLoading(true);
+      const btn = document.getElementById("btn-login-submit");
+      const spinner = document.getElementById("login-btn-spinner");
+      const icon = document.getElementById("login-btn-icon");
+      const btnText = document.getElementById("login-btn-text");
+
+      btn.disabled = true;
+      spinner.classList.remove("hidden");
+      icon.classList.add("hidden");
+      btnText.textContent = "Memverifikasi...";
 
       try {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "login", username, password })
-        });
-        const json = await res.json();
-
-        if (json.status === "success" && json.token) {
-          saveActiveSession({
-            username: json.username || username,
-            token: json.token,
-            loggedInAt: new Date().toISOString()
-          }, rememberMe);
-
-          showAdminDashboard();
-          await syncFromApi();
-          showToast(`Selamat datang, ${json.username || username}!`, "success");
+        const res = await apiPost({ action: "login", username, password });
+        if (res.status === "success" && res.token) {
+          saveSession({ token: res.token, username: res.username || username }, remember);
+          document.getElementById("login-password").value = "";
+          await enterAdminDashboard();
+          showToast(`Selamat datang, ${state.session.username}!`, "success");
         } else {
-          errText.textContent = json.message || "Username atau password tidak valid.";
+          errText.textContent = res.message || "Username atau password salah.";
           errBox.classList.remove("hidden");
         }
       } catch (err) {
-        console.error("Login error:", err);
-        errText.textContent = "Gagal menghubungi server database. Periksa koneksi internet atau URL Web App Code.gs.";
+        errText.textContent = "Gagal terhubung ke server API. Periksa koneksi atau URL Web App Anda.";
         errBox.classList.remove("hidden");
       } finally {
-        setLoginLoading(false);
+        btn.disabled = false;
+        spinner.classList.add("hidden");
+        icon.classList.remove("hidden");
+        btnText.textContent = "Masuk Dashboard";
       }
     }
 
-    async function handleLogout(isUnauthorized = false) {
-      const currentToken = state.session ? state.session.token : "";
-      const apiUrl = getApiUrl();
-
-      clearActiveSession();
-      state.links = [];
-      toggleMobileSidebar(false);
-
-      if (!isUnauthorized && apiUrl && currentToken) {
-        try {
-          await fetch(apiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: "logout", token: currentToken })
-          });
-        } catch (err) {
-          console.warn("Logout server notification failed:", err);
-        }
-      }
-
-      if (isUnauthorized) {
-        showLoginView("Sesi Anda telah berakhir atau tidak valid. Silakan masuk kembali.");
-        showToast("Sesi berakhir. Silakan login kembali.", "error");
-      } else {
-        showLoginView("");
-        showToast("Anda berhasil keluar dari dashboard.", "info");
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // CHANGE USERNAME & PASSWORD (SAVED TO DATABASE VIA CODE.GS)
-    // -----------------------------------------------------------------------
-    function setCredentialsLoading(isLoading) {
-      const btn = document.getElementById("btn-save-credentials");
-      const spinner = document.getElementById("cred-btn-spinner");
-      const icon = document.getElementById("cred-btn-icon");
-      const text = document.getElementById("cred-btn-text");
-      btn.disabled = isLoading;
-      spinner.classList.toggle("hidden", !isLoading);
-      icon.classList.toggle("hidden", isLoading);
-      text.textContent = isLoading ? "Menyimpan ke Database..." : "Simpan ke Database";
-    }
-
-    async function handleUpdateDbCredentials(event) {
-      event.preventDefault();
-
-      const current_password = document.getElementById("sec-current-password").value;
-      const new_username = document.getElementById("sec-new-username").value.trim();
-      const new_password = document.getElementById("sec-new-password").value;
-      const confirm_password = document.getElementById("sec-confirm-password").value;
-
-      if (!current_password) {
-        showToast("Password saat ini wajib diisi.", "error");
-        return;
-      }
-      if (new_username.length < 3) {
-        showToast("Username baru minimal 3 karakter.", "error");
-        return;
-      }
-      if (new_password.length < 6) {
-        showToast("Password baru minimal 6 karakter.", "error");
-        return;
-      }
-      if (new_password !== confirm_password) {
-        showToast("Konfirmasi password baru tidak cocok.", "error");
-        return;
-      }
-
-      setCredentialsLoading(true);
-      try {
-        const res = await postToApi({
-          action: "change_credentials",
-          current_password,
-          new_username,
-          new_password
-        });
-
-        if (res.status === "success") {
-          const updatedUsername = res.username || new_username;
-          const updatedToken = res.token || (state.session ? state.session.token : "");
-
-          saveActiveSession({
-            username: updatedUsername,
-            token: updatedToken,
-            loggedInAt: new Date().toISOString()
-          }, isSessionRemembered());
-
-          updateDisplayedUsername(updatedUsername);
-          document.getElementById("sec-current-password").value = "";
-          document.getElementById("sec-new-password").value = "";
-          document.getElementById("sec-confirm-password").value = "";
-
-          showToast("Username & password berhasil disimpan ke database Google Sheets!", "success");
-        } else {
-          showToast(res.message || "Gagal memperbarui kredensial.", "error");
-        }
-      } catch (err) {
-        console.error("Change credentials error:", err);
-        if (err.message !== "Sesi tidak valid.") {
-          showToast("Gagal menghubungi server: " + err.message, "error");
-        }
-      } finally {
-        setCredentialsLoading(false);
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // API COMMUNICATION (100% LIVE CODE.GS WITH TOKEN)
-    // -----------------------------------------------------------------------
-    async function postToApi(payload) {
-      const apiUrl = getApiUrl();
-      if (!apiUrl) throw new Error("URL Server API belum diatur.");
+    async function handleLogout() {
       const token = state.session ? state.session.token : "";
-
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...payload, token })
-      });
-      const json = await res.json();
-
-      if (json.status === "unauthorized") {
-        await handleLogout(true);
-        throw new Error("Sesi tidak valid.");
+      clearSession();
+      showAdminLoginView();
+      showToast("Anda telah keluar dari portal admin.", "info");
+      if (token && getApiUrl()) {
+        try {
+          await apiPost({ action: "logout", token });
+        } catch {
+          // Ignore network error on logout
+        }
       }
-      return json;
     }
 
-    async function syncFromApi(showSuccessToast = false) {
-      const apiUrl = getApiUrl();
-      if (!apiUrl || !state.session) return;
+    // -----------------------------------------------------------------------
+    // API CONFIG MODAL (LOGIN SCREEN)
+    // -----------------------------------------------------------------------
+    function openApiConfigModal() {
+      document.getElementById("modal-api-url-input").value = getApiUrl();
+      document.getElementById("modal-api-ping-result").classList.add("hidden");
+      document.getElementById("api-config-modal").classList.remove("hidden");
+      lucide.createIcons();
+    }
 
-      state.isLoadingLinks = true;
-      const refreshIcon = document.getElementById("refresh-links-icon");
-      const refreshBtn = document.getElementById("btn-refresh-links");
-      if (refreshIcon) refreshIcon.classList.add("animate-spin");
-      if (refreshBtn) refreshBtn.disabled = true;
+    function closeApiConfigModal() {
+      document.getElementById("api-config-modal").classList.add("hidden");
+    }
 
-      if (state.links.length === 0) {
-        renderLoadingTableState();
+    async function testPingUrl(url, resultEl) {
+      const cleanUrl = (url || "").trim();
+      resultEl.classList.remove("hidden");
+      if (!cleanUrl || !isValidHttpUrl(cleanUrl)) {
+        resultEl.className = "p-3 rounded-xl border text-xs font-medium flex items-center gap-2 bg-rose-50 border-rose-200 text-rose-700";
+        resultEl.textContent = "Format URL tidak valid.";
+        return false;
       }
+      resultEl.className = "p-3 rounded-xl border text-xs font-medium flex items-center gap-2 bg-slate-50 border-slate-200 text-slate-600";
+      resultEl.textContent = "Menguji koneksi ke server Code.gs...";
 
       try {
-        const token = encodeURIComponent(state.session.token || "");
-        const res = await fetch(`${apiUrl}?action=list&token=${token}`);
+        const res = await fetch(`${cleanUrl}?action=ping`);
         const json = await res.json();
-
-        if (json.status === "unauthorized") {
-          await handleLogout(true);
-          return;
+        if (json.status === "success") {
+          resultEl.className = "p-3 rounded-xl border text-xs font-medium flex items-center gap-2 bg-emerald-50 border-emerald-200 text-emerald-700";
+          resultEl.textContent = "✓ Koneksi berhasil! Server Google Apps Script aktif.";
+          return true;
         }
-
-        if (json.status === "success" && Array.isArray(json.data)) {
-          state.links = json.data;
-          renderAll();
-          if (showSuccessToast) {
-            showToast("Data berhasil dimuat ulang dari database.", "success");
-          }
-        } else {
-          throw new Error(json.message || "Format respon server tidak valid.");
-        }
+        throw new Error(json.message || "Respon server tidak sesuai.");
       } catch (err) {
-        console.error("API Sync Error:", err);
-        showToast("Gagal memuat data dari database. Periksa koneksi Anda.", "error");
-        renderAll();
-      } finally {
-        state.isLoadingLinks = false;
-        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
-        if (refreshBtn) refreshBtn.disabled = false;
+        resultEl.className = "p-3 rounded-xl border text-xs font-medium flex items-center gap-2 bg-rose-50 border-rose-200 text-rose-700";
+        resultEl.textContent = "✕ Gagal terhubung. Pastikan URL benar dan akses Web App diatur ke Anyone.";
+        return false;
       }
     }
 
-    async function testSettingsApiConnection() {
-      const url = document.getElementById("input-api-url").value.trim();
-      const statusBox = document.getElementById("settings-ping-status");
-      const btn = document.getElementById("btn-test-api");
-
-      btn.disabled = true;
-      statusBox.className = "p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium flex items-center gap-2";
-      statusBox.textContent = "Menghubungi server database...";
-      statusBox.classList.remove("hidden");
-
-      const ping = await pingServerUrl(url);
-      btn.disabled = false;
-
-      if (ping.ok) {
-        statusBox.className = "p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium flex items-center gap-2";
-        statusBox.textContent = "✓ " + ping.message;
-        showToast("Koneksi ke server database aktif!", "success");
-      } else {
-        statusBox.className = "p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium flex items-center gap-2";
-        statusBox.textContent = "✕ " + ping.message;
-        showToast("Tes koneksi gagal.", "error");
-      }
+    async function testModalApiConnection() {
+      const url = document.getElementById("modal-api-url-input").value;
+      const resultEl = document.getElementById("modal-api-ping-result");
+      await testPingUrl(url, resultEl);
     }
 
-    async function saveSettingsApiUrl() {
-      const url = document.getElementById("input-api-url").value.trim();
+    function saveModalApiConfig() {
+      const url = document.getElementById("modal-api-url-input").value.trim();
       if (!url || !isValidHttpUrl(url)) {
-        showToast("Masukkan URL Web App yang valid (diawali https://).", "error");
+        showToast("Masukkan Web App URL yang valid.", "error");
         return;
       }
       localStorage.setItem(STORAGE_KEY_API, url);
-      state.apiUrl = url;
-      showToast("URL Server API diperbarui. Menyinkronkan data...", "info");
-      await syncFromApi(true);
+      closeApiConfigModal();
+      checkLoginServerStatus();
+      showToast("URL Server API berhasil disimpan.", "success");
     }
 
     // -----------------------------------------------------------------------
-    // NAVIGATION & LAYOUT
+    // DASHBOARD NAVIGATION & DATA SYNC
     // -----------------------------------------------------------------------
-    function toggleMobileSidebar(show) {
+    async function enterAdminDashboard() {
+      document.getElementById("public-redirect-view").classList.add("hidden");
+      document.getElementById("admin-login-view").classList.add("hidden");
+      document.getElementById("admin-app-shell").classList.remove("hidden");
+
+      const uname = state.session?.username || "admin";
+      document.getElementById("sidebar-username-display").textContent = uname;
+      document.getElementById("settings-current-user").textContent = uname;
+      document.getElementById("sec-new-username").value = uname;
+      document.getElementById("sidebar-user-avatar").textContent = uname.slice(0, 2).toUpperCase();
+      document.getElementById("input-api-url").value = getApiUrl();
+
+      switchSection("links");
+      lucide.createIcons();
+      await syncFromApi(false);
+    }
+
+    function toggleMobileSidebar(open) {
       const sidebar = document.getElementById("sidebar");
       const backdrop = document.getElementById("mobile-sidebar-backdrop");
-      if (show) {
+      if (open) {
         sidebar.classList.remove("-translate-x-full");
         backdrop.classList.remove("hidden");
       } else {
@@ -1563,161 +1412,206 @@
       }
     }
 
-    const SECTION_META = {
-      links: {
-        title: "Manajemen Link Form",
-        subtitle: "Kelola pemetaan link Google Form ke domain resmi form.pisangblenger.id"
-      },
-      qrcode: {
-        title: "QR Code Builder",
-        subtitle: "Buat & unduh gambar QR Code resolusi tinggi siap scan untuk setiap formulir"
-      },
-      settings: {
-        title: "Pengaturan & Keamanan",
-        subtitle: "Kelola kredensial administrator database dan koneksi Google Apps Script (Code.gs)"
-      }
-    };
-
-    function switchSection(sectionKey) {
-      document.querySelectorAll(".nav-item").forEach((btn) => {
-        const isTarget = btn.dataset.nav === sectionKey;
-        if (isTarget) {
-          btn.classList.add("bg-slate-900", "text-white");
-          btn.classList.remove("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
-        } else {
-          btn.classList.remove("bg-slate-900", "text-white");
-          btn.classList.add("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
-        }
+    function switchSection(section) {
+      state.activeSection = section;
+      ["links", "qrcode", "settings"].forEach((s) => {
+        document.getElementById(`section-${s}`).classList.toggle("hidden", s !== section);
       });
 
-      const meta = SECTION_META[sectionKey] || SECTION_META.links;
-      document.getElementById("header-page-title").textContent = meta.title;
-      document.getElementById("header-page-subtitle").textContent = meta.subtitle;
+      document.querySelectorAll(".nav-item").forEach((btn) => {
+        const active = btn.dataset.nav === section;
+        btn.className = active
+          ? "nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition bg-slate-900 text-white"
+          : "nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition";
+      });
 
-      document.getElementById("section-links").classList.toggle("hidden", sectionKey !== "links");
-      document.getElementById("section-qrcode").classList.toggle("hidden", sectionKey !== "qrcode");
-      document.getElementById("section-settings").classList.toggle("hidden", sectionKey !== "settings");
-      document.getElementById("header-cta-btn").classList.toggle("hidden", sectionKey !== "links");
+      const meta = {
+        links: {
+          title: "Manajemen Link Form",
+          subtitle: "Kelola pemetaan link Google Form ke domain resmi form.pisangblenger.id"
+        },
+        qrcode: {
+          title: "QR Code Builder",
+          subtitle: "Buat dan unduh QR Code resolusi tinggi siap scan untuk formulir Anda"
+        },
+        settings: {
+          title: "Pengaturan & Keamanan",
+          subtitle: "Kelola akun administrator dan koneksi database Google Sheets"
+        }
+      };
 
-      if (sectionKey === "qrcode") {
+      document.getElementById("header-page-title").textContent = meta[section].title;
+      document.getElementById("header-page-subtitle").textContent = meta[section].subtitle;
+      document.getElementById("header-cta-btn").classList.toggle("hidden", section !== "links");
+
+      if (section === "qrcode") {
         populateQrSelectDropdown();
         renderBuilderCanvas();
       }
       toggleMobileSidebar(false);
-    }
-
-    // -----------------------------------------------------------------------
-    // RENDER DASHBOARD TABLE & KPIS
-    // -----------------------------------------------------------------------
-    function renderLoadingTableState() {
-      const tbody = document.getElementById("links-table-body");
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="py-12 px-5 text-center">
-            <div class="mx-auto w-6 h-6 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-3"></div>
-            <p class="text-xs font-medium text-slate-500">Memuat data link form dari database...</p>
-          </td>
-        </tr>
-      `;
-    }
-
-    function renderAll() {
-      renderDashboard();
-      populateQrSelectDropdown();
-      if (!document.getElementById("section-qrcode").classList.contains("hidden")) {
-        renderBuilderCanvas();
-      }
       lucide.createIcons();
     }
 
-    function renderDashboard() {
-      const totalCount = state.links.length;
-      const activeCount = state.links.filter((l) => l.status === "active").length;
-      const inactiveCount = totalCount - activeCount;
-      const totalClicks = state.links.reduce((sum, l) => sum + (Number(l.clicks) || 0), 0);
+    async function syncFromApi(showFeedback = false) {
+      const apiUrl = getApiUrl();
+      const token = state.session?.token;
+      if (!apiUrl || !token) return;
 
-      document.getElementById("kpi-total-count").textContent = totalCount.toLocaleString("id-ID");
-      document.getElementById("kpi-active-count").textContent = activeCount.toLocaleString("id-ID");
-      document.getElementById("kpi-inactive-count").textContent = inactiveCount.toLocaleString("id-ID");
-      document.getElementById("kpi-total-clicks").textContent = totalClicks.toLocaleString("id-ID");
-      document.getElementById("sidebar-link-count").textContent = totalCount;
+      state.isLoadingLinks = true;
+      const refreshIcon = document.getElementById("refresh-links-icon");
+      if (refreshIcon) refreshIcon.classList.add("animate-spin");
+      renderTable();
 
-      const q = state.searchQuery.trim().toLowerCase();
-      const filtered = state.links.filter((item) => {
-        if (state.statusFilter === "active" && item.status !== "active") return false;
-        if (state.statusFilter === "inactive" && item.status === "active") return false;
-        if (q) {
-          return `${item.title} ${item.slug} ${item.target_url}`.toLowerCase().includes(q);
+      try {
+        const res = await fetch(`${apiUrl}?action=list&token=${encodeURIComponent(token)}`);
+        const json = await res.json();
+
+        if (json.status === "unauthorized") {
+          handleUnauthorized(json.message);
+          return;
         }
-        return true;
+        if (json.status === "success" && Array.isArray(json.data)) {
+          state.links = json.data;
+          updateKpis();
+          renderTable();
+          populateQrSelectDropdown();
+          if (state.activeSection === "qrcode") renderBuilderCanvas();
+          if (showFeedback) showToast("Data berhasil disinkronisasi dari Google Sheets.", "success");
+        } else {
+          showToast(json.message || "Gagal memuat data.", "error");
+        }
+      } catch (err) {
+        console.error("Sync error:", err);
+        showToast("Gagal menghubungi server database.", "error");
+      } finally {
+        state.isLoadingLinks = false;
+        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
+        renderTable();
+      }
+    }
+
+    function updateKpis() {
+      const total = state.links.length;
+      const active = state.links.filter((l) => l.status === "active").length;
+      const inactive = total - active;
+      const clicks = state.links.reduce((acc, l) => acc + Number(l.clicks || 0), 0);
+
+      document.getElementById("kpi-total-count").textContent = total.toLocaleString("id-ID");
+      document.getElementById("kpi-active-count").textContent = active.toLocaleString("id-ID");
+      document.getElementById("kpi-inactive-count").textContent = inactive.toLocaleString("id-ID");
+      document.getElementById("kpi-total-clicks").textContent = clicks.toLocaleString("id-ID");
+      document.getElementById("sidebar-link-count").textContent = total;
+    }
+
+    function handleSearchChange(val) {
+      state.searchQuery = (val || "").trim().toLowerCase();
+      renderTable();
+    }
+
+    function setStatusFilter(filter) {
+      state.statusFilter = filter;
+      document.querySelectorAll(".filter-btn").forEach((btn) => {
+        const isSelected = btn.dataset.filter === filter;
+        btn.className = isSelected
+          ? "filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm"
+          : "filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition";
       });
+      renderTable();
+    }
 
+    function renderTable() {
       const tbody = document.getElementById("links-table-body");
-      document.getElementById("table-count-info").textContent = `Menampilkan ${filtered.length} dari ${totalCount} tautan form`;
+      const countInfo = document.getElementById("table-count-info");
 
-      if (filtered.length === 0) {
+      if (state.isLoadingLinks && state.links.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="6" class="py-12 px-5 text-center">
-              <p class="text-sm font-semibold text-slate-900">Tidak ada link form ditemukan</p>
-              <p class="mt-1 text-xs text-slate-500">Buat link form baru atau ubah filter pencarian Anda.</p>
+            <td colspan="6" class="py-12 text-center text-slate-500">
+              <div class="mx-auto w-7 h-7 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-3"></div>
+              <p class="text-xs font-medium">Memuat data dari Google Sheets...</p>
             </td>
           </tr>
         `;
         return;
       }
 
+      const filtered = state.links.filter((item) => {
+        if (state.statusFilter !== "all" && item.status !== state.statusFilter) return false;
+        if (state.searchQuery) {
+          const hay = `${item.title} ${item.slug} ${item.target_url}`.toLowerCase();
+          return hay.includes(state.searchQuery);
+        }
+        return true;
+      });
+
+      countInfo.textContent = `Menampilkan ${filtered.length} dari ${state.links.length} tautan`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-12 px-4 text-center">
+              <div class="mx-auto w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
+                <i data-lucide="link-2-off" class="w-5 h-5"></i>
+              </div>
+              <p class="text-sm font-semibold text-slate-800">Belum ada tautan ditemukan</p>
+              <p class="text-xs text-slate-500 mt-1">Klik tombol "Buat Link Form Baru" untuk menambahkan pemetaan Google Form.</p>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
       tbody.innerHTML = filtered.map((item) => {
         const isActive = item.status === "active";
+        const shortUrl = `https://${DOMAIN_PREFIX}${item.slug}`;
         const safeId = escapeHtml(item.id);
         const safeSlug = escapeHtml(item.slug);
-        const safeTitle = escapeHtml(item.title);
-        const safeUrl = escapeHtml(item.target_url);
-        const createdDate = formatDateIndo(item.created_at);
-        const clicksFormatted = (Number(item.clicks) || 0).toLocaleString("id-ID");
-
-        const statusBadge = isActive
-          ? `<button onclick="toggleLinkStatus('${safeId}')" title="Klik untuk ubah status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 transition">
-               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Aktif
-             </button>`
-          : `<button onclick="toggleLinkStatus('${safeId}')" title="Klik untuk ubah status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition">
-               <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Nonaktif
-             </button>`;
+        const safeTitle = escapeHtml(item.title || item.slug);
+        const safeTarget = escapeHtml(item.target_url);
 
         return `
           <tr class="hover:bg-slate-50/80 transition">
-            <td class="py-4 pl-5 pr-4 align-middle min-w-[200px]">
-              <div class="font-semibold text-slate-900 leading-snug">${safeTitle}</div>
-              <div class="text-xs text-slate-400 mt-0.5">Dibuat ${createdDate}</div>
+            <td class="py-3.5 pl-5 pr-4">
+              <div class="font-semibold text-slate-900 max-w-[200px] truncate" title="${safeTitle}">${safeTitle}</div>
+              <div class="text-[11px] text-slate-400 font-mono mt-0.5">${safeId}</div>
             </td>
-            <td class="py-4 px-4 align-middle whitespace-nowrap">
-              <div class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-1.5 py-1">
-                <span class="text-xs font-mono text-slate-500">${DOMAIN_PREFIX}<strong class="text-slate-900 font-semibold">${safeSlug}</strong></span>
-                <button onclick="copyShortLink('${safeSlug}')" title="Salin Short Link" class="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 transition">
+            <td class="py-3.5 px-4">
+              <div class="inline-flex items-center gap-1.5">
+                <span class="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80">
+                  /${safeSlug}
+                </span>
+                <button onclick="copyShortLink('${safeSlug}')" title="Salin ${shortUrl}" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition">
                   <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                 </button>
               </div>
             </td>
-            <td class="py-4 px-4 align-middle max-w-[200px]">
-              <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition max-w-full" title="${safeUrl}">
-                <span class="truncate">${safeUrl}</span>
-                <i data-lucide="external-link" class="w-3.5 h-3.5 shrink-0 text-slate-400"></i>
+            <td class="py-3.5 px-4">
+              <a href="${escapeHtml(normalizeTargetUrl(item.target_url))}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-500 hover:text-slate-900 hover:underline block max-w-[220px] truncate" title="${safeTarget}">
+                ${safeTarget}
               </a>
             </td>
-            <td class="py-4 px-4 align-middle text-right whitespace-nowrap">
-              <span class="font-mono text-sm font-semibold text-slate-900">${clicksFormatted}</span>
+            <td class="py-3.5 px-4 text-right font-semibold text-slate-800 tabular-nums">
+              ${Number(item.clicks || 0).toLocaleString("id-ID")}
             </td>
-            <td class="py-4 px-4 align-middle whitespace-nowrap">
-              ${statusBadge}
+            <td class="py-3.5 px-4">
+              <button onclick="toggleLinkStatus('${safeId}')" title="Klik untuk ubah status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${
+                isActive
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                  : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+              }">
+                <span class="w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-400"}"></span>
+                <span>${isActive ? "Aktif" : "Nonaktif"}</span>
+              </button>
             </td>
-            <td class="py-4 pl-4 pr-5 align-middle text-right whitespace-nowrap">
+            <td class="py-3.5 pl-4 pr-5 text-right">
               <div class="inline-flex items-center justify-end gap-1">
-                <button onclick="openQuickQrModal('${safeId}')" title="Lihat & Download QR Code" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition">
+                <button onclick="openQuickQrModal('${safeId}')" title="QR Code Siap Scan" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 text-xs font-semibold transition">
                   <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
                   <span>QR</span>
                 </button>
                 <button onclick="openTestRedirectModal('${safeId}')" title="Test Redirect" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
-                  <i data-lucide="play-circle" class="w-4 h-4"></i>
+                  <i data-lucide="external-link" class="w-4 h-4"></i>
                 </button>
                 <button onclick="openFormModal('${safeId}')" title="Edit Link" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
                   <i data-lucide="pencil" class="w-4 h-4"></i>
@@ -1730,62 +1624,57 @@
           </tr>
         `;
       }).join("");
-    }
 
-    function handleSearchChange(val) {
-      state.searchQuery = val;
-      renderDashboard();
       lucide.createIcons();
     }
 
-    function setStatusFilter(filter) {
-      state.statusFilter = filter;
-      document.querySelectorAll(".filter-btn").forEach((btn) => {
-        const isSelected = btn.dataset.filter === filter;
-        btn.className = isSelected
-          ? "filter-btn px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-900 shadow-sm"
-          : "filter-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition";
-      });
-      renderDashboard();
-      lucide.createIcons();
+    function copyShortLink(slug) {
+      const fullUrl = `https://${DOMAIN_PREFIX}${slug}`;
+      if (copyTextToClipboard(fullUrl)) {
+        showToast(`Disalin: ${fullUrl}`, "success");
+      } else {
+        showToast("Gagal menyalin otomatis. Salin manual dari tabel.", "error");
+      }
     }
 
     // -----------------------------------------------------------------------
-    // CREATE / EDIT / TOGGLE / DELETE LINK (100% LIVE DATABASE)
+    // CREATE / EDIT / TOGGLE / DELETE LINK MODALS
     // -----------------------------------------------------------------------
     function openFormModal(editId = null) {
       state.editingId = editId;
-      const modal = document.getElementById("form-modal");
-      const inputTitle = document.getElementById("input-title");
-      const inputUrl = document.getElementById("input-target-url");
-      const inputSlug = document.getElementById("input-slug");
-      const inputStatus = document.getElementById("input-status");
-
-      document.getElementById("url-error-msg").classList.add("hidden");
+      const modalTitle = document.getElementById("modal-title");
+      const submitText = document.getElementById("btn-submit-text");
+      const titleInput = document.getElementById("input-title");
+      const urlInput = document.getElementById("input-target-url");
+      const slugInput = document.getElementById("input-slug");
+      const statusInput = document.getElementById("input-status");
 
       if (editId) {
-        const item = state.links.find((l) => l.id === editId);
-        if (!item) return;
-        document.getElementById("modal-title").textContent = "Edit Link Form";
-        document.getElementById("btn-submit-text").textContent = "Simpan Perubahan";
-        inputTitle.value = item.title;
-        inputUrl.value = item.target_url;
-        inputSlug.value = item.slug;
-        inputStatus.checked = item.status === "active";
+        const record = state.links.find((l) => l.id === editId);
+        if (!record) return;
+        modalTitle.textContent = "Edit Link Form";
+        submitText.textContent = "Simpan Perubahan";
+        titleInput.value = record.title || "";
+        urlInput.value = record.target_url || "";
+        slugInput.value = record.slug || "";
+        statusInput.checked = record.status === "active";
+        validateTargetUrlInput(record.target_url);
+        evaluateSlugAvailability(record.slug);
       } else {
-        document.getElementById("modal-title").textContent = "Buat Link Form Baru";
-        document.getElementById("btn-submit-text").textContent = "Simpan Link Form";
-        inputTitle.value = "";
-        inputUrl.value = "";
-        inputSlug.value = "";
-        inputStatus.checked = true;
+        modalTitle.textContent = "Buat Link Form Baru";
+        submitText.textContent = "Simpan Link Form";
+        titleInput.value = "";
+        urlInput.value = "";
+        slugInput.value = "";
+        statusInput.checked = true;
+        validateTargetUrlInput("");
+        evaluateSlugAvailability("");
       }
 
       updateStatusToggleLabel();
-      validateTargetUrlInput(inputUrl.value);
-      evaluateSlugAvailability(inputSlug.value);
-      modal.classList.remove("hidden");
-      setTimeout(() => inputTitle.focus(), 60);
+      document.getElementById("form-modal").classList.remove("hidden");
+      lucide.createIcons();
+      setTimeout(() => titleInput.focus(), 50);
     }
 
     function closeFormModal() {
@@ -1797,7 +1686,7 @@
       const checked = document.getElementById("input-status").checked;
       document.getElementById("status-toggle-desc").textContent = checked
         ? "Aktif — Publik dapat mengakses dan diarahkan ke Google Form."
-        : "Nonaktif — Tautan akan menampilkan halaman tidak tersedia.";
+        : "Nonaktif — Pengunjung akan melihat pemberitahuan bahwa form ditutup.";
     }
 
     function validateTargetUrlInput(val) {
@@ -1812,7 +1701,13 @@
       }
       if (!isValidHttpUrl(trimmed)) {
         badge.classList.add("hidden");
-        errEl.textContent = "Format URL tidak valid. Pastikan diawali dengan https://";
+        errEl.textContent = "Format URL tidak valid. Contoh: https://docs.google.com/forms/...";
+        errEl.classList.remove("hidden");
+        return false;
+      }
+      if (isSelfDomainUrl(trimmed)) {
+        badge.classList.add("hidden");
+        errEl.textContent = "Link tujuan tidak boleh mengarah ke domain form.pisangblenger.id sendiri.";
         errEl.classList.remove("hidden");
         return false;
       }
@@ -1840,6 +1735,7 @@
       const wrapper = document.getElementById("slug-input-wrapper");
       const submitBtn = document.getElementById("btn-submit-form");
 
+      if (state.slugCheckTimer) clearTimeout(state.slugCheckTimer);
       wrapper.classList.remove("border-rose-500", "border-emerald-500", "border-amber-500", "border-slate-300");
 
       if (!slug) {
@@ -1871,12 +1767,36 @@
       wrapper.classList.add("border-emerald-500");
       statusBox.innerHTML = `<span class="text-emerald-700 font-semibold">✓ Slug tersedia — ${DOMAIN_PREFIX}${escapeHtml(slug)}</span>`;
       submitBtn.disabled = false;
+
+      // Real-time server verification (?action=check)
+      const apiUrl = getApiUrl();
+      const token = state.session ? state.session.token : "";
+      if (apiUrl && token) {
+        state.slugCheckTimer = setTimeout(async () => {
+          try {
+            const excludeParam = state.editingId ? `&excludeId=${encodeURIComponent(state.editingId)}` : "";
+            const res = await fetch(`${apiUrl}?action=check&slug=${encodeURIComponent(slug)}${excludeParam}&token=${encodeURIComponent(token)}`);
+            const json = await res.json();
+            if (finalizeSlug(document.getElementById("input-slug").value) !== slug) return;
+            if (json.status === "success" && json.available === false) {
+              state.isSlugValid = false;
+              wrapper.classList.remove("border-emerald-500");
+              wrapper.classList.add("border-rose-500");
+              statusBox.innerHTML = `<span class="text-rose-600 font-semibold">✕ Slug sudah terdaftar di database! Tidak bisa disimpan.</span>`;
+              submitBtn.disabled = true;
+            }
+          } catch (err) {
+            console.warn("Server slug check skipped:", err);
+          }
+        }, 420);
+      }
     }
 
     async function handleFormSubmit(event) {
       event.preventDefault();
       const title = document.getElementById("input-title").value.trim();
-      const target_url = document.getElementById("input-target-url").value.trim();
+      const rawUrl = document.getElementById("input-target-url").value.trim();
+      const target_url = normalizeTargetUrl(rawUrl);
       const slug = finalizeSlug(document.getElementById("input-slug").value);
       const status = document.getElementById("input-status").checked ? "active" : "inactive";
 
@@ -1885,7 +1805,7 @@
         return;
       }
       if (!validateTargetUrlInput(target_url)) {
-        showToast("Masukkan link Google Form yang valid.", "error");
+        showToast("Masukkan link Google Form yang valid (bukan domain form.pisangblenger.id).", "error");
         return;
       }
       evaluateSlugAvailability(slug);
@@ -1894,79 +1814,63 @@
         return;
       }
 
-      const btn = document.getElementById("btn-submit-form");
-      const btnText = document.getElementById("btn-submit-text");
-      const origText = btnText.textContent;
-      btn.disabled = true;
-      btnText.textContent = "Menyimpan...";
+      const submitBtn = document.getElementById("btn-submit-form");
+      const submitText = document.getElementById("btn-submit-text");
+      const origText = submitText.textContent;
+      submitBtn.disabled = true;
+      submitText.textContent = "Menyimpan...";
 
       try {
-        const payload = state.editingId
-          ? { action: "update", id: state.editingId, slug, title, target_url, status }
-          : { action: "create", slug, title, target_url, status };
+        const isEdit = Boolean(state.editingId);
+        const payload = isEdit
+          ? { action: "update", token: state.session.token, id: state.editingId, title, target_url, slug, status }
+          : { action: "create", token: state.session.token, title, target_url, slug, status };
 
-        const res = await postToApi(payload);
-
-        if (res.status === "duplicate") {
-          showToast(res.message || "Slug sudah terdaftar di database! Gunakan nama lain.", "error");
-          btn.disabled = false;
-          btnText.textContent = origText;
-          return;
+        const res = await apiPost(payload);
+        if (res.status === "success") {
+          closeFormModal();
+          showToast(isEdit ? "Link berhasil diperbarui." : "Link baru berhasil disimpan!", "success");
+          await syncFromApi(false);
+        } else if (res.status === "duplicate") {
+          showToast(res.message || "Slug sudah terdaftar di database!", "error");
+          const wrapper = document.getElementById("slug-input-wrapper");
+          const statusBox = document.getElementById("slug-status-box");
+          wrapper.classList.remove("border-emerald-500");
+          wrapper.classList.add("border-rose-500");
+          statusBox.innerHTML = `<span class="text-rose-600 font-semibold">✕ ${escapeHtml(res.message || "Slug sudah terdaftar!")}</span>`;
+        } else if (res.status !== "unauthorized") {
+          showToast(res.message || "Gagal menyimpan link.", "error");
         }
-        if (res.status !== "success") {
-          throw new Error(res.message || "Gagal menyimpan data.");
-        }
-
-        showToast(
-          state.editingId
-            ? `Link "${DOMAIN_PREFIX}${slug}" berhasil diperbarui.`
-            : `Link baru "${DOMAIN_PREFIX}${slug}" berhasil disimpan ke database!`,
-          "success"
-        );
-        closeFormModal();
-        await syncFromApi();
       } catch (err) {
-        console.error(err);
-        if (err.message !== "Sesi tidak valid.") {
-          showToast("Gagal menyimpan data: " + err.message, "error");
-        }
+        showToast("Terjadi kesalahan koneksi saat menyimpan.", "error");
       } finally {
-        btn.disabled = false;
-        btnText.textContent = origText;
+        submitBtn.disabled = false;
+        submitText.textContent = origText;
       }
     }
 
     async function toggleLinkStatus(id) {
-      const item = state.links.find((l) => l.id === id);
-      if (!item) return;
-
-      const prevStatus = item.status;
-      const nextStatus = prevStatus === "active" ? "inactive" : "active";
-      item.status = nextStatus;
-      renderAll();
-
       try {
-        const res = await postToApi({ action: "toggle", id });
-        if (res.status !== "success") {
-          throw new Error(res.message || "Gagal mengubah status.");
+        const res = await apiPost({ action: "toggle", token: state.session.token, id });
+        if (res.status === "success") {
+          showToast(`Status tautan diubah menjadi ${res.data.status === "active" ? "Aktif" : "Nonaktif"}.`, "success");
+          await syncFromApi(false);
+        } else if (res.status !== "unauthorized") {
+          showToast(res.message || "Gagal mengubah status.", "error");
         }
-        showToast(`Status "${item.slug}" diubah menjadi ${nextStatus === "active" ? "Aktif" : "Nonaktif"}.`, "info");
-      } catch (err) {
-        item.status = prevStatus;
-        renderAll();
-        if (err.message !== "Sesi tidak valid.") {
-          showToast("Gagal mengubah status di database: " + err.message, "error");
-        }
+      } catch {
+        showToast("Gagal menghubungi server.", "error");
       }
     }
 
     function openDeleteModal(id) {
-      const item = state.links.find((l) => l.id === id);
-      if (!item) return;
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
       state.deletingId = id;
-      document.getElementById("delete-target-slug").textContent = `${DOMAIN_PREFIX}${item.slug}`;
-      document.getElementById("delete-target-title").textContent = item.title;
+      document.getElementById("delete-target-slug").textContent = `/${record.slug}`;
+      document.getElementById("delete-target-title").textContent = record.title || record.slug;
       document.getElementById("delete-modal").classList.remove("hidden");
+      lucide.createIcons();
     }
 
     function closeDeleteModal() {
@@ -1976,25 +1880,20 @@
 
     async function confirmDeleteLink() {
       if (!state.deletingId) return;
-      const id = state.deletingId;
-      const item = state.links.find((l) => l.id === id);
       const btn = document.getElementById("btn-confirm-delete");
       btn.disabled = true;
       btn.textContent = "Menghapus...";
-
       try {
-        const res = await postToApi({ action: "delete", id });
-        if (res.status !== "success") {
-          throw new Error(res.message || "Gagal menghapus data.");
+        const res = await apiPost({ action: "delete", token: state.session.token, id: state.deletingId });
+        if (res.status === "success") {
+          closeDeleteModal();
+          showToast("Link berhasil dihapus permanen.", "success");
+          await syncFromApi(false);
+        } else if (res.status !== "unauthorized") {
+          showToast(res.message || "Gagal menghapus link.", "error");
         }
-        closeDeleteModal();
-        showToast(`Link "${item ? item.slug : ""}" telah dihapus dari database.`, "info");
-        await syncFromApi();
-      } catch (err) {
-        console.error(err);
-        if (err.message !== "Sesi tidak valid.") {
-          showToast("Gagal menghapus link: " + err.message, "error");
-        }
+      } catch {
+        showToast("Gagal menghubungi server.", "error");
       } finally {
         btn.disabled = false;
         btn.textContent = "Ya, Hapus Permanen";
@@ -2002,40 +1901,68 @@
     }
 
     // -----------------------------------------------------------------------
-    // CORE QR CODE CANVAS ENGINE (SCANNABLE, HIGH-RES, ZERO CORS TAINTING)
+    // TEST REDIRECT MODAL
     // -----------------------------------------------------------------------
-    function drawRoundRect(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
+    function openTestRedirectModal(id) {
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
+      const shortUrl = `https://${DOMAIN_PREFIX}${record.slug}`;
+      const targetUrl = normalizeTargetUrl(record.target_url);
 
-    function wrapCanvasText(ctx, text, maxWidth) {
-      const words = String(text || "").split(" ");
-      const lines = [];
-      let current = "";
-      for (const word of words) {
-        const testLine = current ? `${current} ${word}` : word;
-        if (ctx.measureText(testLine).width > maxWidth && current) {
-          lines.push(current);
-          current = word;
-        } else {
-          current = testLine;
-        }
+      document.getElementById("test-url-bar").textContent = shortUrl;
+      const body = document.getElementById("test-preview-body");
+
+      if (record.status !== "active") {
+        body.innerHTML = `
+          <div class="mx-auto w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-3">
+            <i data-lucide="pause-circle" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900">Tautan Sedang Nonaktif</h3>
+          <p class="text-xs text-slate-500 mt-1.5 mb-5">Pengunjung tidak akan diarahkan ke Google Form sampai status diaktifkan kembali.</p>
+          <button onclick="closeTestRedirectModal()" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold">Tutup Preview</button>
+        `;
+      } else {
+        body.innerHTML = `
+          <div class="mx-auto w-12 h-12 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center mb-3 shadow-sm">
+            <i data-lucide="arrow-up-right" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900">${escapeHtml(record.title)}</h3>
+          <p class="text-xs text-slate-500 mt-1 mb-4">Siap dialihkan otomatis ke tujuan berikut:</p>
+          <div class="p-3 rounded-lg bg-white border border-slate-200 text-left font-mono text-[11px] text-slate-600 break-all mb-5">
+            ${escapeHtml(targetUrl)}
+          </div>
+          <div class="flex items-center justify-center gap-2">
+            <button onclick="closeTestRedirectModal()" class="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50">Batal</button>
+            <button onclick="executeTestRedirect('${escapeHtml(record.id)}')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800">
+              <span>Buka Form di Tab Baru</span>
+              <i data-lucide="external-link" class="w-3.5 h-3.5 text-amber-400"></i>
+            </button>
+          </div>
+        `;
       }
-      if (current) lines.push(current);
-      return lines.slice(0, 2);
+
+      document.getElementById("test-redirect-modal").classList.remove("hidden");
+      lucide.createIcons();
     }
 
-    function renderQrToCanvas(canvas, options) {
+    function executeTestRedirect(id) {
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
+      window.open(normalizeTargetUrl(record.target_url), "_blank", "noopener,noreferrer");
+      closeTestRedirectModal();
+    }
+
+    function closeTestRedirectModal() {
+      document.getElementById("test-redirect-modal").classList.add("hidden");
+    }
+
+    // -----------------------------------------------------------------------
+    // QR CODE ENGINE (PURE CANVAS — ZERO CORS TAINTING)
+    // -----------------------------------------------------------------------
+    function drawQrToCanvas(canvas, options) {
       const {
         url,
-        title = "",
-        slug = "",
+        title = "Formulir Pisang Blenger",
         cta = "Scan untuk Mengisi Formulir",
         layout = "card",
         color = "#0F172A",
@@ -2055,113 +1982,89 @@
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, size, size);
 
-        const quietModules = 4;
-        const totalModules = moduleCount + quietModules * 2;
-        const cellSize = Math.floor(size / totalModules);
-        const actualQrSize = cellSize * moduleCount;
-        const offset = Math.floor((size - actualQrSize) / 2);
+        const quietZone = Math.round(size * 0.08);
+        const qrDrawSize = size - quietZone * 2;
+        const cellSize = qrDrawSize / moduleCount;
 
         ctx.fillStyle = color;
         for (let r = 0; r < moduleCount; r++) {
           for (let c = 0; c < moduleCount; c++) {
             if (qr.isDark(r, c)) {
-              ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
+              ctx.fillRect(
+                Math.floor(quietZone + c * cellSize),
+                Math.floor(quietZone + r * cellSize),
+                Math.ceil(cellSize),
+                Math.ceil(cellSize)
+              );
             }
           }
         }
         return;
       }
 
-      // BRANDED PRINTABLE CARD LAYOUT
+      // Branded Card Layout (Aspect ratio 3:4)
       const width = size;
-      const height = Math.round(size * 1.28);
+      const height = Math.round(size * 1.32);
       canvas.width = width;
       canvas.height = height;
-      const s = width / 1200;
 
+      // White card background
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, width, height);
 
-      ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 4 * s;
-      drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, height - 40 * s, 44 * s);
-      ctx.stroke();
-
+      // Top brand accent strip
       ctx.fillStyle = "#F59E0B";
-      drawRoundRect(ctx, 20 * s, 20 * s, width - 40 * s, 18 * s, 9 * s);
-      ctx.fill();
+      ctx.fillRect(0, 0, width, Math.round(height * 0.02));
 
-      const pillW = 380 * s;
-      const pillH = 64 * s;
-      const pillX = (width - pillW) / 2;
-      const pillY = 82 * s;
-      ctx.fillStyle = "#0F172A";
-      drawRoundRect(ctx, pillX, pillY, pillW, pillH, 32 * s);
-      ctx.fill();
-
-      ctx.fillStyle = "#FBBF24";
-      ctx.font = `800 ${28 * s}px Inter, system-ui, sans-serif`;
+      // Header text
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("PISANG BLENGER", width / 2, pillY + pillH / 2 + 1 * s);
+      ctx.fillStyle = "#B45309";
+      ctx.font = `700 ${Math.round(width * 0.032)}px Inter, sans-serif`;
+      ctx.fillText("PISANG BLENGER FORM PORTAL", width / 2, Math.round(height * 0.085));
 
+      // Title (truncate if long)
       ctx.fillStyle = "#0F172A";
-      ctx.font = `700 ${46 * s}px Inter, system-ui, sans-serif`;
-      const titleLines = wrapCanvasText(ctx, title || "Formulir Resmi", width - 160 * s);
-      let titleY = 212 * s;
-      titleLines.forEach((line) => {
-        ctx.fillText(line, width / 2, titleY);
-        titleY += 58 * s;
-      });
+      ctx.font = `800 ${Math.round(width * 0.052)}px Inter, sans-serif`;
+      const cleanTitle = title.length > 28 ? title.slice(0, 27) + "…" : title;
+      ctx.fillText(cleanTitle, width / 2, Math.round(height * 0.145));
 
-      const qrBoxSize = 740 * s;
-      const qrBoxX = (width - qrBoxSize) / 2;
-      const qrBoxY = titleLines.length > 1 ? 315 * s : 285 * s;
+      // QR Frame box
+      const boxSize = Math.round(width * 0.72);
+      const boxX = Math.round((width - boxSize) / 2);
+      const boxY = Math.round(height * 0.19);
+      const pad = Math.round(boxSize * 0.07);
 
-      ctx.fillStyle = "#FFFFFF";
       ctx.strokeStyle = "#E2E8F0";
-      ctx.lineWidth = 4 * s;
-      drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 36 * s);
-      ctx.fill();
-      ctx.stroke();
+      ctx.lineWidth = Math.max(2, Math.round(width * 0.004));
+      ctx.strokeRect(boxX, boxY, boxSize, boxSize);
 
-      const qrPadding = 58 * s;
-      const availableQrPx = qrBoxSize - qrPadding * 2;
-      const cellSize = Math.floor(availableQrPx / moduleCount);
-      const actualQrPx = cellSize * moduleCount;
-      const qrStartX = Math.floor(qrBoxX + (qrBoxSize - actualQrPx) / 2);
-      const qrStartY = Math.floor(qrBoxY + (qrBoxSize - actualQrPx) / 2);
-
+      const qrArea = boxSize - pad * 2;
+      const cellSize = qrArea / moduleCount;
       ctx.fillStyle = color;
       for (let r = 0; r < moduleCount; r++) {
         for (let c = 0; c < moduleCount; c++) {
           if (qr.isDark(r, c)) {
-            ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
+            ctx.fillRect(
+              Math.floor(boxX + pad + c * cellSize),
+              Math.floor(boxY + pad + r * cellSize),
+              Math.ceil(cellSize),
+              Math.ceil(cellSize)
+            );
           }
         }
       }
 
-      const urlY = qrBoxY + qrBoxSize + 72 * s;
-      const displayUrl = `${DOMAIN_PREFIX}${slug}`;
-      ctx.font = `600 ${34 * s}px monospace`;
-      const urlTextW = ctx.measureText(displayUrl).width;
-      const urlPillW = Math.min(width - 120 * s, urlTextW + 76 * s);
-      const urlPillH = 68 * s;
-
-      ctx.fillStyle = "#F8FAFC";
-      ctx.strokeStyle = "#CBD5E1";
-      ctx.lineWidth = 3 * s;
-      drawRoundRect(ctx, (width - urlPillW) / 2, urlY - urlPillH / 2, urlPillW, urlPillH, 18 * s);
-      ctx.fill();
-      ctx.stroke();
-
+      // CTA Pill
+      const ctaY = boxY + boxSize + Math.round(height * 0.085);
       ctx.fillStyle = "#0F172A";
-      ctx.fillText(displayUrl, width / 2, urlY + 1 * s);
-
-      const ctaY = urlY + 86 * s;
-      ctx.fillStyle = "#475569";
-      ctx.font = `600 ${32 * s}px Inter, system-ui, sans-serif`;
+      ctx.font = `700 ${Math.round(width * 0.04)}px Inter, sans-serif`;
       ctx.fillText(cta || "Scan untuk Mengisi Formulir", width / 2, ctaY);
+
+      // URL footer
+      ctx.fillStyle = "#64748B";
+      ctx.font = `600 ${Math.round(width * 0.03)}px monospace`;
+      const displayUrl = url.replace(/^https?:\/\//i, "");
+      ctx.fillText(displayUrl, width / 2, ctaY + Math.round(height * 0.055));
     }
 
     function triggerCanvasDownload(canvas, filename) {
@@ -2173,21 +2076,19 @@
       document.body.removeChild(link);
     }
 
-    // -----------------------------------------------------------------------
-    // QUICK QR MODAL
-    // -----------------------------------------------------------------------
+    // Quick QR Modal
     function openQuickQrModal(id) {
-      const item = state.links.find((l) => l.id === id);
-      if (!item) return;
+      const record = state.links.find((l) => l.id === id);
+      if (!record) return;
       state.quickQrId = id;
-
-      const fullUrl = `https://${DOMAIN_PREFIX}${item.slug}`;
-      document.getElementById("quick-qr-title").textContent = item.title;
+      const fullUrl = `https://${DOMAIN_PREFIX}${record.slug}`;
+      document.getElementById("quick-qr-title").textContent = record.title || record.slug;
       document.getElementById("quick-qr-url").textContent = fullUrl;
 
       const canvas = document.getElementById("quick-qr-canvas");
-      renderQrToCanvas(canvas, {
+      drawQrToCanvas(canvas, {
         url: fullUrl,
+        title: record.title,
         layout: "plain",
         color: "#0F172A",
         size: 600
@@ -2199,25 +2100,22 @@
 
     function closeQuickQrModal() {
       document.getElementById("quick-qr-modal").classList.add("hidden");
-      state.quickQrId = null;
     }
 
-    function downloadQuickQr(layoutType) {
-      const item = state.links.find((l) => l.id === state.quickQrId);
-      if (!item) return;
+    function downloadQuickQr(layout) {
+      const record = state.links.find((l) => l.id === state.quickQrId);
+      if (!record) return;
       const offscreen = document.createElement("canvas");
-      renderQrToCanvas(offscreen, {
-        url: `https://${DOMAIN_PREFIX}${item.slug}`,
-        title: item.title,
-        slug: item.slug,
+      drawQrToCanvas(offscreen, {
+        url: `https://${DOMAIN_PREFIX}${record.slug}`,
+        title: record.title || record.slug,
         cta: "Scan untuk Mengisi Formulir",
-        layout: layoutType,
+        layout,
         color: "#0F172A",
         size: 1200
       });
-      const suffix = layoutType === "card" ? "kartu" : "polos";
-      triggerCanvasDownload(offscreen, `qr-pisangblenger-${item.slug}-${suffix}.png`);
-      showToast(`QR Code (${suffix}) berhasil diunduh!`, "success");
+      triggerCanvasDownload(offscreen, `qr-${record.slug}-${layout}.png`);
+      showToast("QR Code PNG berhasil diunduh!", "success");
     }
 
     function openInFullQrBuilder() {
@@ -2231,18 +2129,19 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // QR CODE BUILDER TAB
-    // -----------------------------------------------------------------------
+    // Full QR Builder Tab
     function populateQrSelectDropdown() {
       const select = document.getElementById("qr-select-link");
+      if (!select) return;
       const currentVal = select.value;
+
       if (state.links.length === 0) {
-        select.innerHTML = `<option value="">Belum ada link form</option>`;
+        select.innerHTML = `<option value="">-- Belum ada link form --</option>`;
         return;
       }
+
       select.innerHTML = state.links
-        .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)} (${DOMAIN_PREFIX}${escapeHtml(item.slug)})</option>`)
+        .map((l) => `<option value="${escapeHtml(l.id)}">${escapeHtml(l.title || l.slug)} (/${escapeHtml(l.slug)})</option>`)
         .join("");
 
       if (currentVal && state.links.some((l) => l.id === currentVal)) {
@@ -2260,7 +2159,6 @@
         layout === "plain"
           ? "qr-layout-btn flex flex-col items-start p-3 rounded-xl border-2 border-slate-900 bg-slate-50 text-left transition"
           : "qr-layout-btn flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition";
-
       document.getElementById("qr-cta-wrapper").classList.toggle("hidden", layout === "plain");
       renderBuilderCanvas();
     }
@@ -2268,8 +2166,8 @@
     function setQrColor(hex) {
       state.qrConfig.color = hex;
       document.querySelectorAll(".qr-color-btn").forEach((btn) => {
-        const isSelected = btn.dataset.qrColor === hex;
-        btn.className = isSelected
+        const active = btn.dataset.qrColor === hex;
+        btn.className = active
           ? "qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
           : "qr-color-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition";
       });
@@ -2279,8 +2177,8 @@
     function setQrResolution(res) {
       state.qrConfig.resolution = res;
       document.querySelectorAll(".qr-res-btn").forEach((btn) => {
-        const isSelected = Number(btn.dataset.qrRes) === res;
-        btn.className = isSelected
+        const active = Number(btn.dataset.qrRes) === res;
+        btn.className = active
           ? "qr-res-btn px-2.5 py-2 rounded-lg border-2 border-slate-900 bg-slate-50 text-xs font-semibold text-slate-900 transition"
           : "qr-res-btn px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition";
       });
@@ -2289,28 +2187,20 @@
 
     function renderBuilderCanvas() {
       const select = document.getElementById("qr-select-link");
-      const item = state.links.find((l) => l.id === select.value) || state.links[0];
       const canvas = document.getElementById("qr-builder-canvas");
-      const urlDisplay = document.getElementById("qr-builder-encoded-url");
+      const urlLabel = document.getElementById("qr-builder-encoded-url");
+      if (!select || !canvas) return;
 
-      if (!item) {
-        urlDisplay.textContent = "Buat link form terlebih dahulu";
-        const ctx = canvas.getContext("2d");
-        canvas.width = 400;
-        canvas.height = 400;
-        ctx.fillStyle = "#F8FAFC";
-        ctx.fillRect(0, 0, 400, 400);
-        return;
-      }
+      const record = state.links.find((l) => l.id === select.value) || state.links[0];
+      const fullUrl = record ? `https://${DOMAIN_PREFIX}${record.slug}` : `https://${DOMAIN_PREFIX}contoh-form`;
+      const title = record ? record.title || record.slug : "Contoh Formulir";
+      const cta = document.getElementById("qr-cta-input").value.trim();
 
-      const fullUrl = `https://${DOMAIN_PREFIX}${item.slug}`;
-      urlDisplay.textContent = fullUrl;
-
-      renderQrToCanvas(canvas, {
+      urlLabel.textContent = fullUrl;
+      drawQrToCanvas(canvas, {
         url: fullUrl,
-        title: item.title,
-        slug: item.slug,
-        cta: document.getElementById("qr-cta-input").value.trim() || "Scan untuk Mengisi Formulir",
+        title,
+        cta,
         layout: state.qrConfig.layout,
         color: state.qrConfig.color,
         size: state.qrConfig.resolution
@@ -2319,74 +2209,91 @@
 
     function downloadBuilderQr() {
       const select = document.getElementById("qr-select-link");
-      const item = state.links.find((l) => l.id === select.value) || state.links[0];
-      if (!item) {
-        showToast("Pilih link form terlebih dahulu.", "error");
+      const record = state.links.find((l) => l.id === select.value) || state.links[0];
+      const slug = record ? record.slug : "pisangblenger-form";
+      const canvas = document.getElementById("qr-builder-canvas");
+      triggerCanvasDownload(canvas, `qr-${slug}-${state.qrConfig.layout}-${state.qrConfig.resolution}px.png`);
+      showToast("QR Code HD berhasil diunduh!", "success");
+    }
+
+    // -----------------------------------------------------------------------
+    // SETTINGS: CREDENTIALS & API URL
+    // -----------------------------------------------------------------------
+    async function handleUpdateDbCredentials(event) {
+      event.preventDefault();
+      const current_password = document.getElementById("sec-current-password").value;
+      const new_username = document.getElementById("sec-new-username").value.trim();
+      const new_password = document.getElementById("sec-new-password").value;
+      const confirm_password = document.getElementById("sec-confirm-password").value;
+
+      if (new_password !== confirm_password) {
+        showToast("Konfirmasi password baru tidak cocok.", "error");
         return;
       }
-      const canvas = document.getElementById("qr-builder-canvas");
-      triggerCanvasDownload(canvas, `qr-pisangblenger-${item.slug}.png`);
-      showToast(`Gambar QR "${item.slug}" berhasil diunduh!`, "success");
-    }
 
-    // -----------------------------------------------------------------------
-    // TEST REDIRECT PREVIEW MODAL
-    // -----------------------------------------------------------------------
-    function openTestRedirectModal(id) {
-      const record = state.links.find((l) => l.id === id);
-      if (!record) return;
+      const btn = document.getElementById("btn-save-credentials");
+      const spinner = document.getElementById("cred-btn-spinner");
+      const icon = document.getElementById("cred-btn-icon");
+      const text = document.getElementById("cred-btn-text");
 
-      document.getElementById("test-url-bar").textContent = `https://${DOMAIN_PREFIX}${record.slug}`;
-      const body = document.getElementById("test-preview-body");
+      btn.disabled = true;
+      spinner.classList.remove("hidden");
+      icon.classList.add("hidden");
+      text.textContent = "Menyimpan...";
 
-      if (record.status === "active") {
-        body.innerHTML = `
-          <p class="text-[11px] font-bold uppercase tracking-widest text-amber-600 mb-1">Pisang Blenger Form Portal</p>
-          <h3 class="text-lg font-bold text-slate-900 mb-1">Mengalihkan ke Formulir...</h3>
-          <p class="text-sm text-slate-500 mb-4">${escapeHtml(record.title)}</p>
-          <div class="p-3 rounded-lg bg-white border border-slate-200 text-left mb-6">
-            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Tujuan Google Form</div>
-            <div class="text-xs font-mono text-slate-700 break-all">${escapeHtml(record.target_url)}</div>
-          </div>
-          <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5">
-            <button onclick="executeTestRedirect('${escapeHtml(record.id)}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition shadow-sm">
-              <span>Buka Google Form Sekarang</span>
-            </button>
-            <button onclick="closeTestRedirectModal()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
-              Tutup
-            </button>
-          </div>
-        `;
-      } else {
-        body.innerHTML = `
-          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700 mb-2">Status: Nonaktif</span>
-          <h3 class="text-lg font-bold text-slate-900 mb-1">Form Dinonaktifkan</h3>
-          <p class="text-sm text-slate-500 mb-6">
-            Pengunjung yang membuka <strong>${DOMAIN_PREFIX}${escapeHtml(record.slug)}</strong> akan melihat halaman ini karena status form sedang <strong>Nonaktif</strong>.
-          </p>
-          <button onclick="closeTestRedirectModal()" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition">
-            Mengerti
-          </button>
-        `;
+      try {
+        const res = await apiPost({
+          action: "change_credentials",
+          token: state.session.token,
+          current_password,
+          new_username,
+          new_password
+        });
+
+        if (res.status === "success") {
+          const remember = Boolean(localStorage.getItem(STORAGE_KEY_SESSION));
+          saveSession({ token: res.token || state.session.token, username: res.username || new_username }, remember);
+          document.getElementById("sidebar-username-display").textContent = state.session.username;
+          document.getElementById("settings-current-user").textContent = state.session.username;
+          document.getElementById("sidebar-user-avatar").textContent = state.session.username.slice(0, 2).toUpperCase();
+          document.getElementById("sec-current-password").value = "";
+          document.getElementById("sec-new-password").value = "";
+          document.getElementById("sec-confirm-password").value = "";
+          showToast("Username & password berhasil diperbarui di database!", "success");
+        } else if (res.status !== "unauthorized") {
+          showToast(res.message || "Gagal memperbarui kredensial.", "error");
+        }
+      } catch {
+        showToast("Gagal terhubung ke server saat mengubah kredensial.", "error");
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add("hidden");
+        icon.classList.remove("hidden");
+        text.textContent = "Simpan ke Database";
       }
-      document.getElementById("test-redirect-modal").classList.remove("hidden");
     }
 
-    function executeTestRedirect(id) {
-      const record = state.links.find((l) => l.id === id);
-      if (!record) return;
-      window.open(record.target_url, "_blank", "noopener,noreferrer");
-      closeTestRedirectModal();
+    function saveSettingsApiUrl() {
+      const url = document.getElementById("input-api-url").value.trim();
+      if (!url || !isValidHttpUrl(url)) {
+        showToast("URL Web App tidak valid.", "error");
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY_API, url);
+      showToast("URL Server Database diperbarui.", "success");
+      testSettingsApiConnection();
     }
 
-    function closeTestRedirectModal() {
-      document.getElementById("test-redirect-modal").classList.add("hidden");
+    async function testSettingsApiConnection() {
+      const url = document.getElementById("input-api-url").value.trim();
+      const box = document.getElementById("settings-ping-status");
+      await testPingUrl(url, box);
     }
 
     // -----------------------------------------------------------------------
-    // PUBLIC REDIRECTOR MODE (?slug=xxxx, ?s=xxxx, or #/go/xxxx) — NO LOGIN!
+    // PUBLIC REDIRECTOR MODE (?slug=, ?s=, #/go/xxxx, or /xxxx) — NO LOGIN!
     // -----------------------------------------------------------------------
-    function extractPublicSlug() {
+    function getPublicSlug() {
       const params = new URLSearchParams(window.location.search);
       const paramSlug = params.get("slug") || params.get("s");
       if (paramSlug) return finalizeSlug(paramSlug);
@@ -2394,6 +2301,16 @@
       const hash = window.location.hash || "";
       const match = hash.match(/^#\/go\/([^/?#]+)/i);
       if (match && match[1]) return finalizeSlug(decodeURIComponent(match[1]));
+
+      // Direct path: form.pisangblenger.id/xxxx
+      const rawPath = window.location.pathname.replace(/^\/+|\/+$/g, "");
+      if (rawPath) {
+        const firstSegment = decodeURIComponent(rawPath.split("/")[0]).trim().toLowerCase();
+        const ignoredPaths = ["", "index.html", "404.html", "admin", "login"];
+        if (firstSegment && !ignoredPaths.includes(firstSegment)) {
+          return finalizeSlug(firstSegment);
+        }
+      }
 
       return "";
     }
@@ -2427,11 +2344,20 @@
         const json = await res.json();
 
         if (json.status === "success" && json.data && json.data.target_url) {
+          const finalUrl = normalizeTargetUrl(json.data.target_url);
+          if (!isValidHttpUrl(finalUrl) || isSelfDomainUrl(finalUrl)) {
+            showPublicRedirectError(
+              "Link Tujuan Tidak Valid",
+              "URL tujuan untuk formulir ini tidak valid. Hubungi administrator."
+            );
+            return;
+          }
+
           document.getElementById("redirect-form-title").textContent = `Membuka "${json.data.title || slug}"...`;
           const manual = document.getElementById("redirect-manual-link");
-          manual.href = json.data.target_url;
+          manual.href = finalUrl;
           manual.classList.remove("hidden");
-          setTimeout(() => window.location.replace(json.data.target_url), 550);
+          setTimeout(() => window.location.replace(finalUrl), 450);
           return;
         }
 
@@ -2457,42 +2383,26 @@
     }
 
     function exitPublicRedirectToAdmin() {
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, "", cleanUrl);
+      window.history.replaceState({}, "", "/");
       bootstrapAdminView();
     }
 
     // -----------------------------------------------------------------------
     // BOOTSTRAP APPLICATION
     // -----------------------------------------------------------------------
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        closeFormModal();
-        closeQuickQrModal();
-        closeDeleteModal();
-        closeTestRedirectModal();
-        closeApiConfigModal();
-      }
-    });
-
     async function bootstrapAdminView() {
-      state.apiUrl = getApiUrl();
-      document.getElementById("input-api-url").value = state.apiUrl;
-      state.session = loadActiveSession();
-
-      if (!state.session || !state.apiUrl) {
-        clearActiveSession();
-        showLoginView();
-        return;
+      const saved = loadSavedSession();
+      if (saved && saved.token && getApiUrl()) {
+        state.session = saved;
+        await enterAdminDashboard();
+      } else {
+        showAdminLoginView();
       }
-
-      showAdminDashboard();
-      await syncFromApi();
     }
 
     (async function init() {
       // 1. Check Public Redirect Mode FIRST (bypasses login completely!)
-      const publicSlug = extractPublicSlug();
+      const publicSlug = getPublicSlug();
       if (publicSlug && !RESERVED_SLUGS.includes(publicSlug)) {
         await runPublicRedirect(publicSlug);
         return;
